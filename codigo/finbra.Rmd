@@ -1,0 +1,115 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 999)
+```
+
+```{r}
+library(tidyverse)
+library(basedosdados)
+
+```
+
+```{r}
+set_billing_id("base-dos-dados-455418")
+
+```
+
+```{r}
+
+query <- ("
+SELECT
+    dados.ano as ano,
+    dados.id_municipio as id_municipio,
+    dados.estagio as estagio,
+    dados.portaria as portaria,
+    dados.conta as conta,
+    dados.estagio_bd as estagio_bd,
+    dados.id_conta_bd as id_conta_bd,
+    dados.conta_bd as conta_bd,
+    dados.valor as valor
+FROM `basedosdados.br_me_siconfi.municipio_despesas_funcao` AS dados
+WHERE ano >= 2004")
+
+finbra_raw <- read_sql(query, billing_project_id = get_billing_id())
+
+
+```
+
+```{r}
+finbra_raw |> filter(estagio_bd == 'Despesas Pagas')
+
+```
+
+
+```{r}
+finbra_raw |> 
+  filter(substr(portaria,1,3) == '12.') |> 
+  mutate(ano = as.factor(ano)) |> 
+  group_by(ano) |> 
+  summarise(valor = sum(valor)/1000000) |> 
+  
+  ggplot(aes(x=ano, y = valor)) +
+  geom_col() + 
+  theme_minimal() + 
+  labs(
+    y = "Total de gastos em milhões de R$",
+    x = "Ano",
+    title = "Histórico de gastos com Atenção Básica - Total gasto por município brasileiro")
+
+
+
+```
+
+
+```{r}
+finbra_raw |> count(id_municipio)
+
+```
+
+
+```{r}
+finbra_raw |> 
+  filter(id_municipio %in% c('2902104', '2930501'), 
+         estagio_bd == 'Despesas Pagas', 
+         is.na(portaria) == FALSE,
+         portaria %in% c('10', '12')) |> 
+  mutate(valor = valor/1000000) |> 
+  
+  ggplot(aes(x = id_municipio, y = valor, fill = conta_bd)) + 
+  geom_col(position = 'dodge')
+
+```
+
+```{r}
+finbra_raw |> 
+  
+  group_by(id_municipio, portaria, conta_bd) |> 
+  summarise(valor = sum(valor)/1000000) |> 
+  filter(portaria %in% c('10', '12')) |> 
+  
+  ggplot(aes(x = conta_bd, y = valor)) + 
+  geom_boxplot(outliers = FALSE) + 
+  theme_minimal() +
+  ylim(0, 200) +
+  coord_flip() 
+
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
