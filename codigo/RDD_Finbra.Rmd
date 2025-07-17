@@ -1,0 +1,92 @@
+---
+title: "finbra-candidates"
+output: html_document
+date: "2025-07-17"
+---
+
+```{r}
+df_prefeitos_simsus_siconfi <- prefeitos |> 
+  left_join(datasus_homicide, by = c('ano' = 'mandato', 'codigo_ibge_sus' = 'cd_muni_res')) |> 
+  
+  mutate(codigo_ibge = as.factor(codigo_ibge),
+         across(starts_with('y_'), ~ (./pop_total)*100000),
+         across(starts_with('y_'), ~ replace_na(., 0)),
+         ano = as.factor(ano),
+         educacao_agr = as.factor(educacao_agr),
+         partido = as.factor(partido)) |> 
+  
+  filter(ano %in% c('2012', '2016', '2020'),
+         !codigo_ibge_sus %in% c("150475", "270440", "120045", "210220", "316960", "251065"),
+         !codigo_ibge %in% c('2702801', '2911253', '2906899', '1507102', '1507508', '2410504')) |> 
+  
+  left_join(finbra_gastos, by = c('codigo_ibge' = 'id_municipio','ano' = 'mandato')) |> 
+
+  mutate(across(starts_with("y_gasto_"), ~ .x / pop_total))
+
+
+```
+
+
+```{r}
+
+RDD <- function(x, y) {
+  
+  controls <- model.matrix(~ ano + partido + idade + educacao_agr + prop_fem_pop + pop_total, data = df_prefeitos_simsus_siconfi)
+  
+  regressao <- rdrobust(x = x,
+           y = y,
+           covs = controls,
+           cluster = df_prefeitos_simsus_siconfi$codigo_ibge,
+           all = TRUE,
+           kernel = "triangular")
+  
+  regressao |> summary() |> print()
+
+  h <- regressao$bws[1]
+
+
+  x_vals <- x[abs(x) <= h]
+  y_vals <- y[abs(x) <= h]
+  
+  
+  dados_filtrados <- tibble(x = x, y = y) |>
+    filter(abs(x) <= h)
+
+  ymax <- mean(dados_filtrados$y)
+
+  
+  rdplot(y = y, x = x,
+         kernel = "triangular",
+         x.lim = c(-h, h),
+         y.lim = c(0, ymax + 300),   
+         nbins = 100,
+         p = 3)
+  }
+
+
+
+
+```
+
+```{r}
+
+RDD(df_prefeitos_simsus_siconfi$mg_fem, df_prefeitos_simsus_siconfi$y_gasto_assist_hosp)
+RDD(df_prefeitos_simsus_siconfi$mg_fem, df_prefeitos_simsus_siconfi$y_gasto_assistencia_comunitaria)
+RDD(df_prefeitos_simsus_siconfi$mg_fem, df_prefeitos_simsus_siconfi$y_gasto_assistencia_social)
+RDD(df_prefeitos_simsus_siconfi$mg_fem, df_prefeitos_simsus_siconfi$y_gasto_assistencia_social_crianca_adolescente)
+
+
+```
+```{r}
+RDD(df_prefeitos_simsus_siconfi$mg_fem, df_prefeitos_simsus_siconfi$y_gasto_atencao_basica)
+RDD(df_prefeitos_simsus_siconfi$mg_fem, df_prefeitos_simsus_siconfi$y_gasto_saude)
+RDD(df_prefeitos_simsus_siconfi$mg_fem, df_prefeitos_simsus_siconfi$y_gasto_defesa_civil)
+RDD(df_prefeitos_simsus_siconfi$mg_fem, df_prefeitos_simsus_siconfi$y_gasto_seguranca_publica)
+RDD(df_prefeitos_simsus_siconfi$mg_fem, df_prefeitos_simsus_siconfi$y_gasto_vig_epidemio)
+RDD(df_prefeitos_simsus_siconfi$mg_fem, df_prefeitos_simsus_siconfi$y_gasto_trabalho)
+
+
+
+
+```
+

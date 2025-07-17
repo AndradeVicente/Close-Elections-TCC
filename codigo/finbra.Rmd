@@ -41,7 +41,75 @@ finbra_raw <- read_sql(query, billing_project_id = get_billing_id())
 ```
 
 ```{r}
-finbra_raw |> filter(estagio_bd == 'Despesas Pagas')
+finbra_raw |> 
+  filter(ano == 2023,
+         estagio == 'Despesas Pagas',
+         id_municipio == '3305554') |> 
+  arrange(portaria)
+```
+
+id_conta_bd 
+
+saude
+assistencia hospitalar 3.10.302	
+Vigilância Epidemiológica 3.10.305	
+Atenção Básica 3.10.301
+saude 3.10.000	
+
+seguranca
+Segurança Pública 3.06.000
+Defesa Civil 3.06.182
+
+assistencia social
+Assistência Social 3.08.000
+Assistência à Criança e ao Adolescente 3.08.243
+Assistência Comunitária 3.08.244
+
+
+Trabalho 3.11.000
+
+```{r}
+finbra_raw |> 
+  filter(id_municipio == '2702801',
+         ano == 2012)
+```
+
+
+```{r}
+ finbra_gastos <- finbra_raw |> 
+  filter(estagio_bd == 'Despesas Pagas') |> 
+  # criando variaveis dependentes
+  mutate(y_gasto = case_when(
+    id_conta_bd == '3.10.000' ~ 'y_gasto_saude',
+    id_conta_bd == '3.10.305' ~ 'y_gasto_vig_epidemio',
+    id_conta_bd == '3.10.301' ~ 'y_gasto_atencao_basica',
+    id_conta_bd == '3.10.302' ~ 'y_gasto_assist_hosp',
+    id_conta_bd == '3.06.000' ~ 'y_gasto_seguranca_publica',
+    id_conta_bd == '3.06.182' ~ 'y_gasto_defesa_civil',
+    id_conta_bd == '3.08.000' ~ 'y_gasto_assistencia_social',
+    id_conta_bd == '3.08.243' ~ 'y_gasto_assistencia_social_crianca_adolescente',
+    id_conta_bd == '3.08.244' ~ 'y_gasto_assistencia_comunitaria',
+    id_conta_bd == '3.11.000' ~ 'y_gasto_trabalho',
+    TRUE ~ NA_character_),
+    
+    #criando mandatos
+    mandato = case_when(ano %% 4 == 0 ~ ano - 4,
+                             ano %% 4 == 1 ~ ano - 1,
+                             ano %% 4 == 2 ~ ano - 2,
+                             ano %% 4 == 3 ~ ano - 3),
+    mandato = as.factor(mandato)) |> 
+  
+  select(ano, mandato, everything()) |> 
+  filter(!is.na(y_gasto)) |> 
+  
+  group_by(mandato, id_municipio, y_gasto) |> 
+  summarise(gasto = sum(valor)) |> 
+  ungroup() |> 
+  pivot_wider(names_from = y_gasto, values_from = gasto, values_fill = 0)
+
+
+  
+
 
 ```
 
