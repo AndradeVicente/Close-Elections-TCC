@@ -11,14 +11,10 @@ output: html_document
 
 library(tidyverse)
 library(electionsBR)
-library(geobr)
-library(readxl)
 
-year = c(2004, 2008, 2012, 2016)
+year = c(2004, 2008, 2012, 2016, 2020)
 
 ```
-
-
 
 # ElectionsBR 
 
@@ -26,11 +22,12 @@ year = c(2004, 2008, 2012, 2016)
 ```{r}
 
 fun_vote_mun_zone <- function(year) {
-  elections_tse(year, type = 'vote_mun_zone', uf = 'all')}
+  elections_tse(year, type = 'vote_mun_zone', uf = 'all') |> 
+    mutate(CD_MUNICIPIO = as.factor(CD_MUNICIPIO))
+  
+  }
 
-df_vote_mun_zone <- map_df(year, fun_vote_mun_zone)
-
-df_candidates_votes <- df_vote_mun_zone |> 
+df_candidates_votes <- map_df(year, fun_vote_mun_zone) |> 
   mutate(votos_zona = coalesce(QT_VOTOS_NOMINAIS_VALIDOS, QT_VOTOS_NOMINAIS)) |> 
   select(ano = ANO_ELEICAO,
          estado = SG_UF,
@@ -50,21 +47,20 @@ df_candidates_votes <- df_vote_mun_zone |>
             partido = first(partido)) |> 
   group_by(ano, estado, cd_municipio_tse) |> 
   mutate(resultado = ifelse(total_votos == max(total_votos), 'Eleito', 'Não Eleito')) |> 
-  mutate(cd_municipio_tse = as.numeric(cd_municipio_tse))
+  mutate(cd_municipio_tse = as.factor(cd_municipio_tse)) |> 
+  ungroup()
  
 ```
-
 
 ## Details about Electoral Zones (most importantly: Electoral Population)
 ```{r}
 
 fun_details_mun_zone <- function(year) {
-  elections_tse(year, type = 'details_mun_zone', uf = 'all')}
+  elections_tse(year, type = 'details_mun_zone', uf = 'all') |> 
+    mutate(CD_MUNICIPIO = as.factor(CD_MUNICIPIO))}
 
-df_details_mun_zone <- map_df(year, fun_details_mun_zone)
-
-df_pop_votante <- df_details_mun_zone |> 
-  select(ano = ANO_ELEICAO,
+df_pop_votante <- map_df(year, fun_details_mun_zone) |> 
+    select(ano = ANO_ELEICAO,
          estado = SG_UF,
          cd_municipio_tse = CD_MUNICIPIO,
          nm_municipio = NM_MUNICIPIO,
@@ -76,26 +72,32 @@ df_pop_votante <- df_details_mun_zone |>
   group_by(ano, estado, cd_municipio_tse) |> 
   summarize(nm_municipio = first(nm_municipio),
             pop_votante = sum(pop_votante)) |> 
-  mutate(cd_municipio_tse = as.numeric(cd_municipio_tse))
+  mutate(cd_municipio_tse = as.numeric(cd_municipio_tse)) |> 
+  ungroup()
 
 ```
-
 
 ## Details about Candidates
 
 ```{r}
 
 fun_details_mun_zone <- function(year) {
-  elections_tse(year, type = 'candidate', uf = 'all') |> 
-    mutate(NR_PROTOCOLO_CANDIDATURA = as.character(NR_PROTOCOLO_CANDIDATURA),
-           NR_CPF_CANDIDATO = as.character(NR_CPF_CANDIDATO),
-           CD_COR_RACA = as.character(CD_COR_RACA))}
+  df <- elections_tse(year, type = 'candidate', uf = 'all')
+  if (year != 2020) {
+    df$NR_PROTOCOLO_CANDIDATURA <- as.character(df$NR_PROTOCOLO_CANDIDATURA)
+  }
+  df$NR_CPF_CANDIDATO <- as.character(df$NR_CPF_CANDIDATO)
+  df$CD_COR_RACA <- as.character(df$CD_COR_RACA)
 
-df_fun_candidates <- map_df(year, fun_details_mun_zone)
+  return(df)
+}
 
-df_candidates_details <- df_fun_candidates |> 
+
+df_candidates_details <- map_df(year, fun_details_mun_zone) |> 
   select(ano = ANO_ELEICAO, #selecionando e filtrando as variaveis
          estado = SG_UF,
+         cd_municipio_tse = SG_UE,
+         nm_municipio_tse = NM_UE,
          cargo = DS_CARGO,
          nr_candidato = NR_CANDIDATO,
          nm_candidato = NM_CANDIDATO,
@@ -104,16 +106,68 @@ df_candidates_details <- df_fun_candidates |>
          genero = DS_GENERO,
          educacao = DS_GRAU_INSTRUCAO,
          cor_raca = DS_COR_RACA,
-         ocupacao = DS_OCUPACAO) |> 
+         ocupacao = DS_OCUPACAO,
+         cd_seq_candidato =SQ_CANDIDATO) |> 
   filter(cargo == 'PREFEITO') |> 
-  group_by(ano, estado, partido, nr_candidato, nm_candidato) |> # some of the candidates are repeated. 
+  group_by(ano, estado, cd_municipio_tse, nr_candidato, cd_seq_candidato) |> # some of the candidates are repeated. 
   summarise(idade = max(idade),
-            genero = first(genero),
-            educacao = first(educacao),
-            cor_raca = first(cor_raca),
-            ocupacao = first(ocupacao))
+            nm_partido = first(partido), 
+            nm_candidato = first(nm_candidato),
+            nm_genero = first(genero),
+            nm_educacao = first(educacao),
+            nm_cor_raca = first(cor_raca),
+            nm_ocupacao = first(ocupacao),
+            nm_municipio_tse = first(nm_municipio_tse),
+            cd_seq_candidato = first(cd_seq_candidato)) |> 
+  ungroup()
+
+ 
 
 ```
+
+## Value of Assets
+
+```{r}
+year = c(2008, 2012, 2016, 2020)
+
+
+fun_values_of_assets <- function(year) {
+  df <- elections_tse(year, type = 'personal_finances', uf = 'all')
+
+  if ("HH_ULTIMA_ATUALIZACAO" %in% names(df)) {
+    df <- df |> mutate(HH_ULTIMA_ATUALIZACAO = as.character(HH_ULTIMA_ATUALIZACAO))
+  }
+
+}
+
+df_values_of_assets <- map_df(year, fun_values_of_assets) |> 
+  select(ano = ANO_ELEICAO,
+         cd_municipio_tse = SG_UE,
+         cd_seq_candidato = SQ_CANDIDATO,
+         nm_desc_bem = DS_BEM_CANDIDATO,
+         val_patrimonio_candidato = VR_BEM_CANDIDATO)
+
+
+```
+
+# Joining databases 
+```{r}
+df_candidates_votes |> head(1)
+```
+
+```{r}
+
+df_candidates_votes |> 
+  left_join(df_candidates_details, by = c('ano', 'cd_municipio_tse', 'nr_candidato'))  
+  
+left_join(df_values_of_assets) |> 
+  left_join(df_pop_votante)
+
+df_candidates_details |> head(1)
+```
+
+
+
 
 # Aditional Information
 

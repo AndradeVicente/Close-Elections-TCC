@@ -1,0 +1,143 @@
+---
+title: "tse"
+output: html_document
+date: "2025-07-29"
+---
+```{r}
+library(tidyverse)
+```
+
+# 2004
+```{r}
+
+df_despesas_2004 <- read.csv(
+  '../dados/covariadas-TSE/TSE-Gasto-de-Campanha/2004/DespesaCandidato.csv',
+  sep = ';',
+  fileEncoding = 'latin1') |> 
+  select(cd_tse_mun = SG_UE,
+         cd_num_candidato = NR_CAND,
+         nm_candidato = NO_CAND,
+         nm_cargo = DS_CARGO,
+         val_despesa_RS = VR_DESPESA,
+         nm_despesa = RTRIM.LTRIM.DR.DS_TITULO..) |> 
+  mutate(cd_tse_mun = as.factor(cd_tse_mun),
+         cd_num_candidato = as.factor(cd_num_candidato))
+```
+
+# 2008
+```{r}
+df_despesas_2008 <- read.csv('../dados/covariadas-TSE/TSE-Gasto-de-Campanha/2008/despesas_candidatos_2008_brasil.csv',
+         sep = ';',
+         fileEncoding = 'latin1') |> 
+  
+  select(cd_tse_mun = SG_UE,
+         cd_num_candidato = NR_CANDIDATO,
+         nm_candidato = NM_CANDIDATO,
+         nm_cargo = DS_CARGO,
+         val_despesa_RS = VR_DESPESA,
+         nm_despesa = DS_TITULO) |> 
+  mutate(cd_tse_mun = as.factor(cd_tse_mun),
+         cd_num_candidato = as.factor(cd_num_candidato))
+
+```
+
+
+# 2012
+```{r}
+df_despesas_2012 <-read.csv(
+  '../dados/covariadas-TSE/TSE-Gasto-de-Campanha/2012/despesas_candidatos_2012_brasil.txt',
+  sep = ';',
+  fileEncoding = 'latin1') |> 
+  
+  select(cd_tse_mun = Número.UE,
+         cd_num_candidato = Número.candidato,
+         nm_candidato = Nome.candidato,
+         nm_cargo = Cargo,
+         val_despesa_RS = Valor.despesa,
+         nm_despesa = Tipo.despesa) |> 
+  mutate(cd_tse_mun = as.factor(cd_tse_mun),
+         cd_num_candidato = as.factor(cd_num_candidato))
+
+
+
+```
+
+
+# 2016
+```{r}
+df_despesas_2016 <- read.csv(
+  '../dados/covariadas-TSE/TSE-Gasto-de-Campanha/2016/despesas_candidatos_prestacao_contas_final_2016_brasil.txt',
+  sep = ';',
+  fileEncoding = 'latin1') |> 
+  select(cd_tse_mun = Sigla.da.UE,
+         cd_num_candidato = Número.candidato,
+         nm_candidato = Nome.candidato,
+         nm_cargo = Cargo,
+         val_despesa_RS = Valor.despesa,
+         nm_despesa = Tipo.despesa) |> 
+  mutate(cd_tse_mun = as.factor(cd_tse_mun),
+         cd_num_candidato = as.factor(cd_num_candidato))
+
+```
+
+# 2020
+```{r}
+
+df_despesas_2020 <- read.csv(
+  '../dados/covariadas-TSE/TSE-Gasto-de-Campanha/2020/despesas_contratadas_candidatos_2020_BRASIL.csv',
+  sep = ';',
+  fileEncoding = 'latin1') |> 
+
+  select(cd_tse_mun = SG_UE,
+         cd_num_candidato = NR_CANDIDATO,
+         nm_candidato = NM_CANDIDATO,
+         nm_cargo = DS_CARGO,
+         val_despesa_RS = VR_DESPESA_CONTRATADA,
+         nm_despesa = DS_ORIGEM_DESPESA) |> 
+  mutate(cd_tse_mun = as.factor(cd_tse_mun),
+         cd_num_candidato = as.factor(cd_num_candidato))
+
+
+
+
+```
+
+
+```{r}
+
+df_despesa_completo_raw  <- bind_rows(
+  "2004" = df_despesas_2004,
+  "2008" = df_despesas_2008,
+  "2012" = df_despesas_2012,
+  "2016" = df_despesas_2016,
+  "2020" = df_despesas_2020,
+  .id = "ano")
+
+```
+
+```{r}
+
+df_despesa_completo_raw |> 
+  filter(nm_cargo == "Prefeito") |> 
+  mutate(val_despesa_RS = str_replace(val_despesa_RS, pattern = ',', replacement = '.'),
+         val_despesa_RS = as.numeric(val_despesa_RS)) |> 
+  group_by(ano, cd_tse_mun, cd_num_candidato) |> 
+  summarise(nm_candidato = first(nm_candidato),
+            val_despesa_RS = sum(val_despesa_RS)) |> 
+  ungroup() |> 
+  write_rds("../dados/dados-output/covariadas/TSE-Gasto-de-Campanha.RDS")
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+

@@ -23,7 +23,7 @@ library(rdrobust)
 
 # datasus_raw |> 
 
-#   write_rds("datasus_raw.rds")
+#write_rds("datasus_raw.rds")
 
 # datasus_raw <- readRDS("datasus_raw.rds")
 ```

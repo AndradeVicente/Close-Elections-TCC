@@ -58,9 +58,9 @@ RDD <- function(x, y) {
   rdplot(y = y, x = x,
          kernel = "triangular",
          x.lim = c(-h, h),
-         y.lim = c(0, ymax + 300),   
+         y.lim = c(0, ymax + 50),   
          nbins = 100,
-         p = 3)
+         p = 1)
   }
 
 
