@@ -1,0 +1,65 @@
+---
+title: "SIA"
+author: "Maria Eduarda"
+date: "2025-08-03"
+output: html_document
+---
+# Bibliotecas
+```{r}
+# remotes::install_github("rfsaldanha/microdatasus")
+# library(microdatasus)
+library(tidyverse)
+# install.packages("tidyverse")
+```
+
+```{r}
+sia_raw_amb <- fetch_datasus(
+  year_start = 2021,
+  month_start = 1,
+  year_end = 2021,
+  month_end = 12,
+  uf = "AC",
+  information_system = "SIA-PA"
+)
+
+head(sia_raw_amb)
+
+sia_raw_amb |>
+  count(AP_CIDPRI) |> 
+  arrange(desc(n))  
+  
+  
+```
+```{r}
+sia_raw_psic <- fetch_datasus(
+  year_start = 2021,
+  month_start = 1,
+  year_end = 2021,
+  month_end = 12,
+  uf = "AC",
+  information_system = "SIA-PS"
+)
+
+head(sia_raw_psic)
+
+sia_raw_psic |> 
+  count(CIDPRI) |> 
+  arrange(desc(n))
+```
+```{r}
+sia_raw_dom <- fetch_datasus(
+  year_start = 2020,
+  month_start = 1,
+  year_end = 2020,
+  month_end = 12,
+  uf = "AC",
+  information_system = "SIA-SAD"
+)
+
+head(sia_raw_dom)
+
+sia_raw_dom |> 
+  count(CIDPRI) |> 
+  arrange(desc(n))
+```
+
