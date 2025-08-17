@@ -209,23 +209,23 @@ df_tse_completo_raw <- df_candidates_votes |>
 
 ```{r}
 
-df_gastos_de_campanha <- readRDS('../dados/dados-output/covariadas/TSE-Gasto-de-Campanha.RDS') |> 
+df_gastos_de_campanha <- readRDS('../../dados/TSE/TSE-Gasto-de-Campanha.RDS') |> 
   mutate(ano = as.numeric(ano))
 
-dicionario_tse_ibge <- read.csv('../dados/dicionario-muni-TSE-Ibge/municipios_brasileiros_tse.csv') |> 
+dicionario_tse_ibge <- read.csv('../../dados/TSE/municipios_brasileiros_tse.csv') |> 
   select(cd_municipio_tse = codigo_tse,
          cd_municipio_ibge_7  = codigo_ibge) |> 
   mutate(cd_municipio_tse = as.factor(cd_municipio_tse),
          cd_municipio_ibge_6 = substr(cd_municipio_ibge_7, 1, 6))
 
-df_pop_masc <- read.csv('../dados/covariadas-IBGE/pop_masc_fem/ibge_cnv_popbr182320189_100_70_198.csv', sep = ';', skip = 4, encoding = 'latin1') |> 
+df_pop_masc <- read.csv('../../dados/IBGE/pop_masc_fem/ibge_cnv_popbr182320189_100_70_198.csv', sep = ';', skip = 4, encoding = 'latin1') |> 
   select(municipio = Município, val_pop_masculina = População_residente) |> 
   mutate(cd_municipio_ibge_6 = as.factor(substr(municipio, 1, 6)),
          val_pop_masculina = as.numeric(val_pop_masculina)) |> 
   filter(is.na(val_pop_masculina) == FALSE) |> 
   select(-municipio)
 
-df_pop_genders <- read.csv('../dados/covariadas-IBGE/pop_masc_fem/ibge_cnv_popbr220607189_100_70_198.csv', sep = ';', skip = 4, encoding = 'latin1') |> 
+df_pop_genders <- read.csv('../../dados/IBGE/pop_masc_fem/ibge_cnv_popbr220607189_100_70_198.csv', sep = ';', skip = 4, encoding = 'latin1') |> 
   select(municipio = Município, val_pop_feminina = População_residente) |> 
   mutate(cd_municipio_ibge_6 = as.factor(substr(municipio, 1, 6)),
          val_pop_feminina = as.numeric(val_pop_feminina)) |> 
@@ -241,7 +241,7 @@ df_tse_completo_raw |> mutate(cd_municipio_tse = as.factor(as.numeric(cd_municip
   left_join(df_gastos_de_campanha, by = c('ano', 'cd_municipio_tse' = 'cd_tse_mun','nr_candidato' = 'cd_num_candidato', 'nm_candidato')) |> 
   left_join(df_pop_genders, by = c('cd_municipio_ibge_6')) |> 
   mutate(val_pop_total = val_pop_feminina + val_pop_masculina) |> 
-  write_rds('../dados/dados-output/TSE-Completo.RDS')
+  write_rds('../../dados/TSE/TSE_Raw.RDS')
 
 
 
@@ -304,7 +304,7 @@ tse_completo_raw |>
     cd_municipio_ibge_6,
     cd_municipio_tse) |> 
   
-  write_rds('../dados/TSE/TSE_tratado_completo.RDS)
+  write_rds('../../dados/TSE/TSE_tratado_completo.RDS')
   
 
   
