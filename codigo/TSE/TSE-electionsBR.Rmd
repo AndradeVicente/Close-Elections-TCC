@@ -124,7 +124,7 @@ df_candidates_details <- df_candidates_details_raw |>
   mutate(cd_municipio_tse = as.factor(cd_municipio_tse)) 
 
  
-df_candidates_details_raw |> count(ANO_ELEICAO, SG_UE, NR_CANDIDATO) |> arrange(desc(n))
+df_candidates_details_raw |> count(ANO_ELEICAO, SG_UE, NR_TITULO_ELEITORAL_CANDIDATO) |> arrange(desc(n))
 
 df_candidates_details_raw |> filter(ANO_ELEICAO == 2020,
                                     SG_UE == '58440', 
@@ -248,14 +248,75 @@ df_tse_completo_raw |> mutate(cd_municipio_tse = as.factor(as.numeric(cd_municip
 ```
 
 
-## creating RDS file 
 ```{r}
 
-saveRDS(candidates, file = "Dados/candidates.rds")
+tse_completo_raw <- readRDS("../dados/TSE/TSE_Raw.RDS")
+
+tse_completo_raw |> 
+  group_by(ano, cd_municipio_tse) |> 
+  arrange(desc(total_votos), .by_group = TRUE) |> 
+  slice_head(n = 2) |> 
+  filter(nm_genero %in% c('MASCULINO', 'FEMININO')) |> 
+  group_by(ano, cd_municipio_tse) |> 
+  filter(n_distinct(nm_genero) == 2) |>
+  
+  mutate(val_total_votos_municipio = sum(total_votos),
+         val_votos_prefeita_mulher = ifelse(nm_genero == 'FEMININO', total_votos, (val_total_votos_municipio - total_votos)),
+         val_votos_prefeito_homem = ifelse(nm_genero == 'MASCULINO', total_votos, (val_total_votos_municipio - total_votos)),
+         val_margem_vitoria_feminina = (val_votos_prefeita_mulher - val_votos_prefeito_homem)/val_total_votos_municipio) |> 
+  
+  mutate(nom_educacao_agrupada = case_when(
+    nm_educacao %in% c('ANALFABETO', 'ENSINO FUNDAMENTAL INCOMPLETO', 'FUNDAMENTAL INCOMPLETO', 'LÊ E ESCREVE') ~ 'Incomplete Elementary',
+    nm_educacao %in% c('ENSINO FUNDAMENTAL COMPLETO', 'FUNDAMENTAL COMPLETO'	) ~ 'Complete Elementary',
+    nm_educacao %in% c('ENSINO MÉDIO INCOMPLETO', 'MÉDIO INCOMPLETO') ~ 'Incomplete High School',
+    nm_educacao %in% c('ENSINO MÉDIO COMPLETO', 'MÉDIO COMPLETO') ~ 'Complete High School',
+    nm_educacao %in% c('SUPERIOR INCOMPLETO') ~ 'Incomplete University',
+    nm_educacao %in% c('SUPERIOR COMPLETO') ~ 'Complete University',
+    .default = NULL)) |> 
+  
+  mutate(cov_municipio_proporcao_mulheres_pop = (val_pop_feminina/val_pop_total)) |> 
+  
+  filter(resultado == 'Eleito',
+         pop_votante <= 200000) |> 
+  
+  ungroup() |> 
+  arrange(cd_municipio_tse, nm_candidato, ano) |>
+  group_by(cd_municipio_tse, nm_candidato) |> 
+  mutate(cov_reeleicao = if_else(
+      lag(resultado == "Eleito", default = FALSE) & lag(ano, default = 0) == ano - 4,
+      TRUE,
+      FALSE)) |> 
+  
+  ungroup() |> 
+  
+  select(
+    ano,
+    val_margem_vitoria_feminina,
+    cov_reeleicao,
+    cov_candidato_partido = partido,
+    cov_candidato_idade = idade,
+    cov_candidato_patrimonio = val_patrimonio_candidato,
+    cov_candidato_despesa_campanha_rs = val_despesa_RS,
+    cov_candidato_educacao_agrupada = nom_educacao_agrupada,
+    cov_municipio_pop_total = val_pop_total,
+    cov_municipio_proporcao_mulheres_pop,
+    cd_municipio_ibge_7,
+    cd_municipio_ibge_6,
+    cd_municipio_tse) |> 
+  
+  write_rds('../dados/TSE/TSE_tratado_completo.RDS)
+  
+
+  
+  
+  
+  
+  
+
+
+  
 
 ```
-
-
 
 
 
