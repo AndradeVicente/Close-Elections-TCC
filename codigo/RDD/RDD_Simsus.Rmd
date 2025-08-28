@@ -43,7 +43,7 @@ df_rdd_simsus <- df_candidates |>
     across(starts_with('y_'), ~ (./cov_municipio_pop_total)*100000),
     across(starts_with('y_'), ~ replace_na(., 0)),
   ) |> 
-  filter(!ano %in% c(2004))
+  filter(!ano %in% c(2004, 2020))
   
 
 
@@ -54,6 +54,8 @@ df_rdd_simsus <- df_candidates |>
 
 RDD <- function(df, x, y) {
 
+  library(rdrobust)
+  
   df <- df |>
     filter(
       !is.na({{x}}),
@@ -72,8 +74,8 @@ RDD <- function(df, x, y) {
 
   controls <- model.matrix(
     ~ ano 
-     # + cov_reeleicao + cov_candidato_partido + cov_candidato_patrimonio + cov_candidato_despesa_campanha_rs + cov_candidato_educacao_agrupada + cov_candidato_idade 
-    # + cov_municipio_proporcao_mulheres_pop + cov_municipio_pop_total
+    + cov_reeleicao + cov_candidato_partido + cov_candidato_patrimonio + cov_candidato_despesa_campanha_rs + cov_candidato_educacao_agrupada + cov_candidato_idade
+     + cov_municipio_proporcao_mulheres_pop + cov_municipio_pop_total
     , data = df)
 
   x_vals <- df |> pull({{x}})
@@ -110,14 +112,19 @@ RDD <- function(df, x, y) {
 
 ```
 
-
+# homicidio de mulheres - 15 ~ 49 - ambiente doméstico
 ```{r}
-df_rdd_simsus |> RDD(val_margem_vitoria_feminina, y_domestic_homicide)
+
+
+df_rdd_simsus |> RDD(val_margem_vitoria_feminina, y_alcoholic_disease)
 
 ```
-
+# Suicídio
 
 ```{r}
+
+df_rdd_simsus |> RDD(val_margem_vitoria_feminina, y_suicide)
+
 ```
 
 
