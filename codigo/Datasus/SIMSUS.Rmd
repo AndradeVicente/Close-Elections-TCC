@@ -19,53 +19,56 @@ library(microdatasus)
 # DATASUS
 
 ```{r}
-# 
-# datasus_raw <- fetch_datasus(year_start = 2005, year_end = 2024, uf = "all", information_system = "SIM-DOEXT")
-# datasus_geral_tratado <- datasus_raw |> 
-#   
-#   select(cid_causa_bas = CAUSABAS,
-#          cid_linha_aa = LINHAA,
-#          cid_linha_ab = LINHAB,
-#          cid_linha_ac = LINHAC,
-#          cid_linha_ad = LINHAD,
-#          cd_sexo = SEXO, # 0-Ignorado, 1-Masculino, 2-Feminino
-#          cd_raca = RACACOR, # 1-Branca, 2-Preta, 3-Amarela, 4-Parda, 5-Indígena
-#          cd_estado_civil = ESTCIV, # 1-Solteiro, 2-Casado, 3-Viúvo, 4-Separado judicialmente, 5-União consensual (versões anteriores) 9-Ignorado
-#          dt_obito = DTOBITO, # dd/mm/aaaa
-#          dt_nasc = DTNASC,  # dd/mm/aaaa
-#          cd_escolaridade = ESC, # 1-Nenhuma, 2-1 a 3 anos, 3-4 a 7 anos, 4-8 a 11 anos, 5-12 e mais, 9-Ignorado
-#          ocup_cbo = OCUP, #CBO2002
-#          cd_muni_res = CODMUNRES, # IBGE
-#          cd_local_ocor = LOCOCOR, # 9-Ignorado, 1-Hospital, 2-Outro estab saúde, 3-Domicílio, 4-Via Pública 5-Outros 
-#          cd_muni_ocor = CODMUNOCOR, # IBGE
-#          tipo_acidente = CIRCOBITO # 9-Ignorado, 1-Acidente, 2-Suicídio, 3-Homicídio, 4-Outros
-#          ) |> 
-#   
-#   mutate(dt_obito = as.Date(dt_obito, format="%d%m%Y"),
-#          ano_obito = year(dt_obito),
-#          dt_nasc = as.Date(dt_nasc, format="%d%m%Y"),
-#          idade = as.integer(difftime(dt_obito, dt_nasc, units = "days") / 365.25),
-#          
-#          mandato = case_when(ano_obito %% 4 == 0 ~ ano_obito - 4,
-#                              ano_obito %% 4 == 1 ~ ano_obito - 1,
-#                              ano_obito %% 4 == 2 ~ ano_obito - 2,
-#                              ano_obito %% 4 == 3 ~ ano_obito - 3)) |> 
-#   mutate(
-#     cid_linha_aa = str_split(cid_linha_aa, "\\*") |> map(~ .x[.x != ""]),
-#     cid_linha_ab = str_split(cid_linha_ab, "\\*") |> map(~ .x[.x != ""]),
-#     cid_linha_ac = str_split(cid_linha_ac, "\\*") |> map(~ .x[.x != ""]),
-#     cid_linha_ad = str_split(cid_linha_ad, "\\*") |> map(~ .x[.x != ""])) |> 
-#   mutate(
-#     cid10_direct_and_antecedents = pmap(list(basica = cid_causa_bas, a = cid_linha_aa, b = cid_linha_ab, c = cid_linha_ac, d = cid_linha_ad),
-#                                         function(basica, a, b, c, d) c(basica, a, b, c, d))) |>
-#   
-#   select(-cid_linha_aa, -cid_linha_ab, -cid_linha_ac, -cid_linha_ad) |> 
-#   
-#   mutate(visual_lista = map_chr(cid10_direct_and_antecedents, ~ paste(., collapse = ", ")))
-#   
-# datasus_geral_tratado |> write_rds("../dados/dados-output/datasus_geral_tratado.rds")
 
-datasus_geral_tratado <- read_rds("../dados/dados-output/datasus_geral_tratado.rds")
+datasus_raw <- fetch_datasus(year_start = 2005, year_end = 2024, uf = "all", information_system = "SIM-DOEXT")
+
+datasus_geral_tratado <- datasus_raw |>
+
+  select(cid_causa_bas = CAUSABAS,
+         cid_linha_aa = LINHAA,
+         cid_linha_ab = LINHAB,
+         cid_linha_ac = LINHAC,
+         cid_linha_ad = LINHAD,
+         cd_sexo = SEXO, # 0-Ignorado, 1-Masculino, 2-Feminino
+         cd_raca = RACACOR, # 1-Branca, 2-Preta, 3-Amarela, 4-Parda, 5-Indígena
+         cd_estado_civil = ESTCIV, # 1-Solteiro, 2-Casado, 3-Viúvo, 4-Separado judicialmente, 5-União consensual (versões anteriores) 9-Ignorado
+         dt_obito = DTOBITO, # dd/mm/aaaa
+         dt_nasc = DTNASC,  # dd/mm/aaaa
+         cd_escolaridade = ESC, # 1-Nenhuma, 2-1 a 3 anos, 3-4 a 7 anos, 4-8 a 11 anos, 5-12 e mais, 9-Ignorado
+         ocup_cbo = OCUP, #CBO2002
+         cd_muni_res = CODMUNRES, # IBGE
+         cd_local_ocor = LOCOCOR, # 9-Ignorado, 1-Hospital, 2-Outro estab saúde, 3-Domicílio, 4-Via Pública 5-Outros
+         cd_muni_ocor = CODMUNOCOR, # IBGE
+         tipo_acidente = CIRCOBITO # 9-Ignorado, 1-Acidente, 2-Suicídio, 3-Homicídio, 4-Outros
+         ) |>
+
+  mutate(cd_muni_res = as.factor(substr(cd_muni_res, 1, 6)),
+         cd_muni_ocor = as.factor(substr(cd_muni_ocor, 1, 6)),
+         dt_obito = as.Date(dt_obito, format="%d%m%Y"),
+         ano_obito = year(dt_obito),
+         dt_nasc = as.Date(dt_nasc, format="%d%m%Y"),
+         idade = as.integer(difftime(dt_obito, dt_nasc, units = "days") / 365.25),
+
+         mandato = case_when(ano_obito %% 4 == 0 ~ ano_obito - 4,
+                             ano_obito %% 4 == 1 ~ ano_obito - 1,
+                             ano_obito %% 4 == 2 ~ ano_obito - 2,
+                             ano_obito %% 4 == 3 ~ ano_obito - 3)) |>
+  mutate(
+    cid_linha_aa = str_split(cid_linha_aa, "\\*") |> map(~ .x[.x != ""]),
+    cid_linha_ab = str_split(cid_linha_ab, "\\*") |> map(~ .x[.x != ""]),
+    cid_linha_ac = str_split(cid_linha_ac, "\\*") |> map(~ .x[.x != ""]),
+    cid_linha_ad = str_split(cid_linha_ad, "\\*") |> map(~ .x[.x != ""])) |>
+  mutate(
+    cid10_direct_and_antecedents = pmap(list(basica = cid_causa_bas, a = cid_linha_aa, b = cid_linha_ab, c = cid_linha_ac, d = cid_linha_ad),
+                                        function(basica, a, b, c, d) c(basica, a, b, c, d))) |>
+
+  select(-cid_linha_aa, -cid_linha_ab, -cid_linha_ac, -cid_linha_ad) |>
+
+  mutate(visual_lista = map_chr(cid10_direct_and_antecedents, ~ paste(., collapse = ", ")))
+
+datasus_geral_tratado |> write_rds("../../dados/Datasus/SIMSUS/datasus_geral_tratado.rds")
+
+datasus_geral_tratado <- readRDS("../../dados/Datasus/SIMSUS/datasus_geral_tratado.rds")
 
 ```
 
@@ -94,7 +97,7 @@ cid10_verificador <- function(coluna, cid_inicio, cid_fim) {
 ## Homicidio e Feminicidio
 ```{r}
 
-datasus_geral_tratado |>
+var_dependentes_simsus <- datasus_geral_tratado |>
   mutate(
     # 1. Suicídio (X60–X84 e Y87)
     y_suicide = cid10_verificador(cid10_direct_and_antecedents, "X60", "X84") |
@@ -112,9 +115,12 @@ datasus_geral_tratado |>
     
     # 4. Homicídio doméstico (X85–Y09) + local = domicílio
     y_domestic_homicide = cid10_verificador(cid10_direct_and_antecedents, "X85", "Y09") &
-                          cd_local_ocor == "3"
-  )
+                          cd_local_ocor == "3")
 
+
+
+
+var_dependentes_simsus |> write_rds("../../dados/Datasus/SIMSUS/var_dependentes_simsus.RDS")
 ```
 
 # TSE

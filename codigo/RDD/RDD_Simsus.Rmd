@@ -1,0 +1,133 @@
+---
+title: "close-election"
+output: html_document
+date: "2025-08-27"
+---
+
+```{r}
+library(tidyverse)
+
+```
+
+
+```{r}
+df_candidates <- readRDS('../../dados/TSE/TSE_tratado_completo.RDS')
+df_datasus <- readRDS('../../dados/Datasus/SIMSUS/var_dependentes_simsus.RDS')
+```
+
+```{r}
+
+df_simsus_dependentes <- df_datasus |> 
+  filter(idade >= 15 & idade <= 49, cd_sexo == 2)  |> 
+  group_by(mandato, cd_muni_res) |>
+  summarise(across(
+  .cols = starts_with("y_"),       
+  .fns = ~ sum(.),  
+  .names = "{.col}"              
+  )) |> 
+  ungroup() |> 
+  arrange(cd_muni_res, mandato) |> 
+  group_by(cd_muni_res) |> 
+  mutate(across(
+    .cols = starts_with("y_"),       
+    .fns = ~ lag(.),  
+    .names = "{.col}_previous"))
+  
+
+```
+
+```{r}
+df_rdd_simsus <- df_candidates |> 
+  left_join(df_simsus_dependentes, by= c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni_res')) |> 
+  mutate(
+    across(starts_with('y_'), ~ (./cov_municipio_pop_total)*100000),
+    across(starts_with('y_'), ~ replace_na(., 0)),
+  ) |> 
+  filter(!ano %in% c(2004))
+  
+
+
+```
+
+
+```{r}
+
+RDD <- function(df, x, y) {
+
+  df <- df |>
+    filter(
+      !is.na({{x}}),
+      !is.na({{y}}),
+      !is.na(ano),
+      !is.na(cov_reeleicao),
+      !is.na(cov_candidato_partido),
+      !is.na(cov_candidato_patrimonio),
+      !is.na(cov_candidato_despesa_campanha_rs),
+      !is.na(cov_candidato_educacao_agrupada),
+      !is.na(cov_candidato_idade),
+      !is.na(cov_municipio_proporcao_mulheres_pop),
+      !is.na(cov_municipio_pop_total),
+      !is.na(cd_municipio_ibge_7)
+    )
+
+  controls <- model.matrix(
+    ~ ano 
+     # + cov_reeleicao + cov_candidato_partido + cov_candidato_patrimonio + cov_candidato_despesa_campanha_rs + cov_candidato_educacao_agrupada + cov_candidato_idade 
+    # + cov_municipio_proporcao_mulheres_pop + cov_municipio_pop_total
+    , data = df)
+
+  x_vals <- df |> pull({{x}})
+  y_vals <- df |> pull({{y}})
+
+  regressao <- rdrobust(
+    x = x_vals,
+    y = y_vals,
+    covs = controls,
+    cluster = df$cd_municipio_ibge_7,
+    all = TRUE,
+    kernel = "triangular"
+  )
+
+  print(summary(regressao))
+
+  h <- regressao$bws[1]
+
+  dados_filtrados <- tibble(x = x_vals, y = y_vals) |>
+    filter(abs(x) <= h)
+
+  ymax <- mean(dados_filtrados$y)
+
+  rdplot(
+    y = y_vals,
+    x = x_vals,
+    kernel = "triangular",
+    x.lim = c(-h, h),
+    y.lim = c(0, ymax * 2),
+    nbins = 100,
+    p = 1
+  )
+}
+
+```
+
+
+```{r}
+df_rdd_simsus |> RDD(val_margem_vitoria_feminina, y_domestic_homicide)
+
+```
+
+
+```{r}
+```
+
+
+
+
+
+
+
+
+
+
+
+
