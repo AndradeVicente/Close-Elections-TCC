@@ -17,6 +17,26 @@ df_datasus <- readRDS('../../dados/Datasus/SIMSUS/var_dependentes_simsus.RDS')
 
 ```{r}
 
+df_datasus |> 
+  filter(idade >= 15 & idade <= 49, cd_sexo == 2) |> 
+  group_by(mandato, cd_muni_res, ano_obito) |>
+  summarise(across(starts_with("y_"), sum, .names = "{.col}"), .groups = "drop") |>
+  mutate(t = v - mandato) |>                  # distância em anos desde o início
+  filter(t %in% 1:4) |>                         # só anos do mandato
+  pivot_wider(
+    id_cols = c(cd_muni_res, mandato),          # queremos 1 linha por muni/mandato
+    names_from = t,                             # gera t1, t2, t3, t4
+    values_from = starts_with("y_"), 
+    names_glue = "{.value}_t{t}"
+  )
+
+
+```
+
+
+
+```{r}
+
 df_simsus_dependentes <- df_datasus |> 
   filter(idade >= 15 & idade <= 49, cd_sexo == 2)  |> 
   group_by(mandato, cd_muni_res) |>

@@ -4,26 +4,224 @@ output: html_document
 date: "2025-09-25"
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r}
+library(tidyverse)
+library(haven)
 ```
 
-## R Markdown
+```{r}
+df_adriano_raw <- read_dta('../../dados/Adriano/Base_cosolidada_TCC_base2.dta')
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+df_adriano_raw |> view()
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+
+consolidado_tcc_2 <- df_adriano_raw |> 
+
+  select(
+    
+    cd_muni = ibge,
+    year,
+    
+    #sinan mental
+    y_sinan_mental_total_ocor_trab = total,
+    y_sinan_mental_afast_trab = afastamento_trabalho,
+    y_sinan_mental_afast_trab_desgaste = afastamento_situacao,
+    y_sinan_mental_hab_psicofarmacos = habitos_psicofarmacos,
+    y_sinan_mental_hab_fumar = habitos_fumar,
+    y_sinan_mental_hab_drogas = habitos_drogas,
+    y_sinan_mental_hab_alcool =habitos_alcool,
+    y_sinan_mental_encaminhamento_caps = encaminhamento_caps,
+    y_sinan_mental_cura = cura,
+    y_sinan_mental_cura_n_conf = cura_nao_conf,
+    y_sinan_mental_trabalho_obs_F = sexo_F,
+    y_sinan_mental_trabalho_obs_M = sexo_M,
+    y_sinan_mental_trabalho_obito = obito_trabalho,
+    y_sinan_mental_incapacidade_temp = incapacidade_temp,
+    y_sinan_mental_incapacidade_parc = incapacidade_perm_par,
+    y_sinan_mental_incapacidade_total = incapacidade_perm_tot,
+    
+    #sinan violencia
+    y_sinan_reincidencia   = OUT_VEZES,
+    y_sinan_autoprovocada = LES_AUTOP,
+    y_sinan_viol_fisica = VIOL_FISIC,
+    y_sinan_viol_financeira = VIOL_FINAN,
+    y_sinan_viol_psicologica = VIOL_PSICO,
+    y_sinan_viol_tortura = VIOL_TORT,
+    y_sinan_viol_sexual = VIOL_SEXU,
+    y_sinan_viol_trafico_humano = VIOL_TRAF,
+    y_sinan_viol_negligencia = VIOL_NEGLI,
+    y_sinan_viol_trabalho_infantil = VIOL_INFAN,
+    y_sinan_viol_intervencao_legal = VIOL_LEGAL,
+    y_sinan_viol_outros = VIOL_OUTR,
+    
+    #sinan meio de agressao
+    y_sinan_agressao_forca = AG_FORCA,
+    y_sinan_agressao_enforcamento = AG_ENFOR,
+    y_sinan_agressao_objeto_contudente = AG_OBJETO,
+    y_sinan_agressao_corte = AG_CORTE,
+    y_sinan_agressao_quente = AG_QUENTE,
+    y_sinan_agressao_evenenamento = AG_ENVEN,
+    y_sinan_agressao_fogo = AG_FOGO,
+    y_sinan_agressao_ameaca = AG_AMEACA,
+    y_sinan_agressao_outros = AG_OUTROS,
+    
+    #sinan violencia sexual
+    y_sinan_sex_assedio = SEX_ASSEDI,
+    y_sinan_sex_estupro = SEX_ESTUPR,
+    y_sinan_sex_pudor = SEX_PUDOR,
+    y_sinan_sex_pornografia_infantil = SEX_PORNO,
+    y_sinan_sex_exploracao_sexual = SEX_EXPLO,
+    y_sinan_sex_outro = SEX_OUTRO,
+    
+    #sinan procedimento por tipo
+    y_sinan_procedimento_aborto = PROC_ABORT,
+    y_sinan_procedimento_coleta_semen = PROC_SEMEN,
+    y_sinan_procedimento_coleta_vaginal = PROC_VAGIN,
+    y_sinan_procedimento_contracepcao_emerg = PROC_CONTR,
+    
+    # ocorencias no momento da notificacao
+    y_sinan_notificacao_dst = CONS_DST,
+    y_sinan_notificacao_suicidio = CONS_SUIC,
+    y_sinan_notificacao_mental = CONS_MENT,
+    y_sinan_notificacao_estresse_pos_tra = CONS_ESTRE,
+    
+    #encaminhamento
+    y_sinan_enc_rede_saude = ENC_SAUDE,
+    y_sinan_enc_abrigo = ENC_ABRIGO,
+    y_sinan_enc_sentinela = ENC_SENTIN,
+    y_sinan_enc_deam = ENC_DEAM,
+    y_sinan_enc_dpca = ENC_DPCA,
+    y_sinan_enc_delegacia_outra = ENC_DELEG,
+    y_sinan_enc_mp = ENC_MPU,
+    y_sinan_enc_mulher_abrigo = ENC_MULHER,
+    y_sinan_enc_creas = ENC_CREAS,
+    y_sinan_enc_iml = ENC_IML) |> 
+  
+  mutate(
+    mandato = case_when(year %% 4 == 0 ~ year - 4,
+                        year %% 4 == 1 ~ year - 1,
+                        year %% 4 == 2 ~ year - 2,
+                        year %% 4 == 3 ~ year - 3),
+    cd_muni = as.character(cd_muni)) |> 
+  group_by(cd_muni, mandato) |> 
+  
+  summarise(across(
+    .cols = starts_with("y_"),       
+    .fns = ~ sum(.),  
+    .names = "{.col}")) |> 
+  
+  mutate(across(
+    .cols = starts_with("y_"),
+    .fns = ~ replace_na(., 0),
+    .names = "{.col}"))
+
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+
+df_candidates <- readRDS('../../dados/TSE/TSE_tratado_completo.RDS')
+
+df_rdd_adriano <- df_candidates |>
+  filter(!ano %in% c('2004')) |> 
+  left_join(consolidado_tcc_2, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni')) |> 
+  
+    mutate(across(
+    .cols = starts_with("y_"),
+    .fns = ~ (./cov_municipio_pop_total)*100000,
+    .names = "{.col}"))
+
+```
+
+```{r}
+RDD <- function(df, x, y) {
+  library(rdrobust)
+  library(rlang)
+
+  # pega o nome da variável y em formato string
+  y_name <- as_label(enquo(y))
+
+  df <- df |>
+    filter(
+      !is.na({{x}}),
+      !is.na({{y}}),
+      !is.na(ano),
+      !is.na(cov_reeleicao),
+      !is.na(cov_candidato_partido),
+      !is.na(cov_candidato_educacao_agrupada),
+      !is.na(cov_candidato_idade),
+      !is.na(cov_municipio_proporcao_mulheres_pop),
+      !is.na(cov_municipio_pop_total),
+      !is.na(cd_municipio_ibge_7)
+    )
+  
+    # se não tiver dados suficientes, pula
+  if (nrow(df) < 30 || length(unique(df |> pull({{y}}))) < 5) {
+    cat("\n====================\n")
+    cat("Variável:", y_name, "- não tem dados suficientes. Pulando.\n")
+    return(NULL)
+  }
+
+
+  controls <- model.matrix(
+    ~ ano 
+    + cov_reeleicao + cov_candidato_partido + cov_candidato_educacao_agrupada + cov_candidato_idade + cov_municipio_proporcao_mulheres_pop + cov_municipio_pop_total,
+    data = df
+  )
+
+  x_vals <- df |> pull({{x}})
+  y_vals <- df |> pull({{y}})
+
+  regressao <- rdrobust(
+    x = x_vals,
+    y = y_vals,
+    covs = controls,
+    cluster = df$cd_municipio_ibge_7,
+    all = TRUE,
+    kernel = "triangular"
+  )
+
+  cat("\n====================\n")
+  cat("Resultado para variável:", y_name, "\n")
+  print(summary(regressao))
+
+  h <- regressao$bws[1]
+
+  dados_filtrados <- tibble(x = x_vals, y = y_vals) |>
+    filter(abs(x) <= h)
+
+  ymax <- mean(dados_filtrados$y)
+
+  rdplot(
+    y = y_vals,
+    x = x_vals,
+    kernel = "triangular",
+    x.lim = c(-h, h),
+    y.lim = c(0, ymax * 2),
+    nbins = 100,
+    p = 1,
+    title = paste("RDD Plot -", y_name),
+    y.label = y_name,
+    x.label = as_label(enquo(x))
+  )
+}
+```
+
+
+
+```{r}
+library(purrr)
+library(rlang)
+
+y_vars <- names(df_rdd_adriano)[grepl("^y_", names(df_rdd_adriano))]
+
+map(y_vars, ~ {RDD(df_rdd_adriano, x = val_margem_vitoria_feminina, y = !!sym(.x))})
+
+
+```
+
