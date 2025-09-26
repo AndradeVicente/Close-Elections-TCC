@@ -13,6 +13,13 @@ library(haven)
 ```
 
 ```{r}
+
+
+
+```
+
+
+```{r}
 df_adriano_raw <- read_dta('../../dados/Adriano/base_consolidada_TCC.dta')
 
 df_adriano <- df_adriano_raw |> 
@@ -38,12 +45,48 @@ df_adriano <- df_adriano_raw |>
 
 ```
 
+duda
 ```{r}
 
-df_candidates <- readRDS('../../dados/TSE/TSE_tratado_completo.RDS')
+
+df_adriano <- df_adriano_raw |> 
+  select(cd_muni_ibge = ibge, year, beneficio_medi_tot, qt_equipes_sf, 
+         acsimplantado, nasf_acum, unidades_caps, familias_beneficiadas, 
+         valor_repassado, pib, saude_mental) |> 
+  mutate(
+    mandato = case_when(year %% 4 == 0 ~ year - 4,
+                        year %% 4 == 1 ~ year - 1,
+                        year %% 4 == 2 ~ year - 2,
+                        year %% 4 == 3 ~ year - 3),
+    cd_muni_ibge = as.character(cd_muni_ibge),
+    across(where(is.numeric), ~ ifelse(is.nan(.), NA, .))
+  ) |> 
+  group_by(cd_muni_ibge, mandato) |> 
+  summarise(
+    total_beneficio_medi_tot = sum(beneficio_medi_tot, na.rm = TRUE),
+    total_qt_equipes_sf      = sum(qt_equipes_sf, na.rm = TRUE),
+    total_acsimplantado      = sum(acsimplantado, na.rm = TRUE),
+    total_unidades_caps      = sum(unidades_caps, na.rm = TRUE),
+    .groups = "drop"
+  ) |> 
+  arrange(cd_muni_ibge, mandato) |> 
+  group_by(cd_muni_ibge) |> 
+  mutate(
+    y_beneficio_medi_tot = total_beneficio_medi_tot - lag(total_beneficio_medi_tot),
+    y_qt_equipes_sf      = total_qt_equipes_sf      - lag(total_qt_equipes_sf),
+    y_acsimplantado      = total_acsimplantado      - lag(total_acsimplantado),
+    y_unidades_caps      = total_unidades_caps      - lag(total_unidades_caps)
+  )
+```
+
+
+
+```{r}
+
+ <- readRDS('../../dados/TSE/TSE_tratado_completo.RDS')
 
 df_rdd_adriano <- df_candidates |>
-  filter(!ano %in% c('2004', '2020')) |> 
+  filter(!ano %in% c('2004')) |> 
   left_join(df_adriano, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni_ibge')) |> 
   
   mutate(y_beneficio_medi_tot = (y_beneficio_medi_tot/cov_municipio_pop_total)*10000,
@@ -52,7 +95,7 @@ df_rdd_adriano <- df_candidates |>
          y_unidades_caps = (y_unidades_caps/cov_municipio_pop_total)*10000)
          
 
-
+df_candidates |> view()
   
   
 ```
@@ -63,29 +106,46 @@ df_rdd_adriano <- df_candidates |>
 ```{r}
 
 RDD <- function(df, x, y) {
-
   library(rdrobust)
-  
+  library(rlang)
+
+  # pega o nome da variável y em formato string
+  y_name <- as_label(enquo(y))
+
   df <- df |>
     filter(
       !is.na({{x}}),
       !is.na({{y}}),
       !is.na(ano),
-      !is.na(cov_reeleicao),
-      !is.na(cov_candidato_partido),
       !is.na(cov_candidato_patrimonio),
       !is.na(cov_candidato_despesa_campanha_rs),
+      !is.na(cov_reeleicao),
+      !is.na(cov_candidato_partido),
       !is.na(cov_candidato_educacao_agrupada),
       !is.na(cov_candidato_idade),
       !is.na(cov_municipio_proporcao_mulheres_pop),
       !is.na(cov_municipio_pop_total),
       !is.na(cd_municipio_ibge_7)
     )
+  
+    # se não tiver dados suficientes, pula
+  if (nrow(df) < 30 || length(unique(df |> pull({{y}}))) < 5) {
+    cat("\n====================\n")
+    cat("Variável:", y_name, "- não tem dados suficientes. Pulando.\n")
+    return(NULL)
+  }
+
 
   controls <- model.matrix(
     ~ ano 
-    + cov_reeleicao + cov_candidato_partido + cov_candidato_patrimonio + cov_candidato_despesa_campanha_rs + cov_candidato_educacao_agrupada + cov_candidato_idade
-     + cov_municipio_proporcao_mulheres_pop + cov_municipio_pop_total
+    + cov_reeleicao
+    + cov_candidato_partido
+    + cov_candidato_educacao_agrupada
+    + cov_candidato_idade
+    + cov_municipio_proporcao_mulheres_pop
+    + cov_municipio_pop_total
+    + cov_candidato_patrimonio
+    + cov_candidato_despesa_campanha_rs
     ,data = df)
 
   x_vals <- df |> pull({{x}})
@@ -100,6 +160,8 @@ RDD <- function(df, x, y) {
     kernel = "triangular"
   )
 
+  cat("\n====================\n")
+  cat("Resultado para variável:", y_name, "\n")
   print(summary(regressao))
 
   h <- regressao$bws[1]
@@ -116,11 +178,26 @@ RDD <- function(df, x, y) {
     x.lim = c(-h, h),
     y.lim = c(0, ymax * 2),
     nbins = 100,
-    p = 1
+    p = 1,
+    title = paste("RDD Plot -", y_name),
+    y.label = y_name,
+    x.label = as_label(enquo(x))
   )
 }
 
 ```
+
+```{r}
+library(purrr)
+library(rlang)
+
+y_vars <- names(df_rdd_adriano)[grepl("^y_", names(df_rdd_adriano))]
+
+map(y_vars, ~ {RDD(df_rdd_adriano, x = val_margem_vitoria_feminina, y = !!sym(.x))})
+
+
+```
+
 
 
 ```{r}

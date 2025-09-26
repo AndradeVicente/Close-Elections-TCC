@@ -134,7 +134,18 @@ df_rdd_adriano <- df_candidates |>
     mutate(across(
     .cols = starts_with("y_"),
     .fns = ~ (./cov_municipio_pop_total)*100000,
+    .names = "{.col}")) |> 
+    
+    mutate(across(
+    .cols = starts_with("y_"),
+    .fns = ~ replace_na(., 0),
     .names = "{.col}"))
+
+```
+
+```{r}
+
+df_rdd_adriano |> count(ano)
 
 ```
 
@@ -170,9 +181,13 @@ RDD <- function(df, x, y) {
 
   controls <- model.matrix(
     ~ ano 
-    + cov_reeleicao + cov_candidato_partido + cov_candidato_educacao_agrupada + cov_candidato_idade + cov_municipio_proporcao_mulheres_pop + cov_municipio_pop_total,
-    data = df
-  )
+    + cov_reeleicao
+    + cov_candidato_partido
+    + cov_candidato_educacao_agrupada
+    + cov_candidato_idade
+    + cov_municipio_proporcao_mulheres_pop
+    + cov_municipio_pop_total
+    ,data = df)
 
   x_vals <- df |> pull({{x}})
   y_vals <- df |> pull({{y}})
@@ -204,7 +219,7 @@ RDD <- function(df, x, y) {
     x.lim = c(-h, h),
     y.lim = c(0, ymax * 2),
     nbins = 100,
-    p = 1,
+    p = 2,
     title = paste("RDD Plot -", y_name),
     y.label = y_name,
     x.label = as_label(enquo(x))
@@ -224,4 +239,37 @@ map(y_vars, ~ {RDD(df_rdd_adriano, x = val_margem_vitoria_feminina, y = !!sym(.x
 
 
 ```
+
+```{r}
+
+RDD(df_rdd_adriano, x = val_margem_vitoria_feminina, y = y_sinan_viol_psicologica)
+
+rdplot(
+  y = df_rdd_adriano$y_sinan_viol_psicologica,
+  x = df_rdd_adriano$val_margem_vitoria_feminina,
+  kernel = "triangular",
+  x.lim = c(-0.141, 0.141),
+  # y.lim = c(30, 100),
+  nbins = 100,
+  p = 4)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
