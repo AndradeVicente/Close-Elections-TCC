@@ -10,7 +10,7 @@ library(haven)
 ```
 
 ```{r}
-df_adriano_raw <- read_dta('../../dados/Adriano/Base_cosolidada_TCC_base2.dta')
+df_adriano_raw <- read_dta('../../dados/Adriano/Base_consolidada_TCC_base3.dta')
 
 df_adriano_raw |> view()
 ```
