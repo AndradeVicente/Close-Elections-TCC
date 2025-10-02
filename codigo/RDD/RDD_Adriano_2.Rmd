@@ -16,6 +16,64 @@ df_adriano_raw |> view()
 ```
 
 
+```{r}
+
+consolidado_tcc_3 <- df_adriano_raw |> 
+
+  select(
+    
+    cd_muni = ibge,
+    year,
+
+    y_sinan_viol_fisica = VIOL_FISIC_fem,
+    y_sinan_viol_financeira = VIOL_FINAN_fem,
+    y_sinan_viol_psicologica = VIOL_PSICO_fem,
+    y_sinan_viol_tortura = VIOL_TORT_fem,
+    y_sinan_viol_sexual = VIOL_SEXU_fem,
+    y_sinan_viol_trafico_humano = VIOL_TRAF_fem,
+    y_sinan_viol_negligencia = VIOL_NEGLI_fem,
+    y_sinan_viol_trabalho_infantil = VIOL_INFAN_fem,
+    y_sinan_viol_intervencao_legal = VIOL_LEGAL_fem,
+    y_sinan_viol_outros = VIOL_OUTR_fem,
+    
+    y_sinan_agressao_forca = AG_FORCA_fem,
+    y_sinan_agressao_enforcamento = AG_ENFOR_fem,
+    y_sinan_agressao_objeto_contudente = AG_OBJETO_fem,
+    y_sinan_agressao_corte = AG_CORTE_fem,
+    y_sinan_agressao_quente = AG_QUENTE_fem,
+    y_sinan_agressao_evenenamento = AG_ENVEN_fem,
+    y_sinan_agressao_fogo = AG_FOGO_fem,
+    y_sinan_agressao_ameaca = AG_AMEACA_fem,
+    y_sinan_agressao_outros = AG_OUTROS_fem,
+    
+    y_sinan_sex_assedio = SEX_ASSEDI_fem,
+    y_sinan_sex_estupro = SEX_ESTUPR_fem,
+    y_sinan_sex_pudor = SEX_PUDOR_fem,
+    y_sinan_sex_pornografia_infantil = SEX_PORNO_fem,
+    y_sinan_sex_exploracao_sexual = SEX_EXPLO_fem,
+    y_sinan_sex_outro = SEX_OUTRO_fem) |> 
+  
+  mutate(
+    mandato = case_when(year %% 4 == 0 ~ year - 4,
+                        year %% 4 == 1 ~ year - 1,
+                        year %% 4 == 2 ~ year - 2,
+                        year %% 4 == 3 ~ year - 3),
+    cd_muni = as.character(cd_muni)) |> 
+  group_by(cd_muni, mandato) |> 
+  
+  summarise(across(
+    .cols = starts_with("y_"),       
+    .fns = ~ sum(.),  
+    .names = "{.col}")) |> 
+  
+  mutate(across(
+    .cols = starts_with("y_"),
+    .fns = ~ replace_na(., 0),
+    .names = "{.col}"))
+
+
+
+```
 
 ```{r}
 
@@ -129,7 +187,7 @@ df_candidates <- readRDS('../../dados/TSE/TSE_tratado_completo.RDS')
 
 df_rdd_adriano <- df_candidates |>
   filter(!ano %in% c('2004')) |> 
-  left_join(consolidado_tcc_2, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni')) |> 
+  left_join(consolidado_tcc_3, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni')) |> 
   
     mutate(across(
     .cols = starts_with("y_"),
@@ -219,7 +277,7 @@ RDD <- function(df, x, y) {
     x.lim = c(-h, h),
     y.lim = c(0, ymax * 2),
     nbins = 100,
-    p = 2,
+    p = 4,
     title = paste("RDD Plot -", y_name),
     y.label = y_name,
     x.label = as_label(enquo(x))
