@@ -1,0 +1,154 @@
+---
+title: "rdd_base_consolidada"
+output: html_document
+date: "2025-08-28"
+---
+
+
+```{r}
+library(tidyverse)
+library(haven)
+
+
+```
+
+```{r}
+df_adriano_raw <- read_dta('../../dados/Adriano/base_consolidada_TCC.dta')
+
+df_adriano <- df_adriano_raw |> 
+  select(cd_muni_ibge = ibge, year, beneficio_medi_tot, qt_equipes_sf, acsimplantado, nasf_acum , unidades_caps, familias_beneficiadas, valor_repassado, pib, saude_mental) |> 
+  mutate(
+    mandato = case_when(year %% 4 == 0 ~ year - 4,
+                        year %% 4 == 1 ~ year - 1,
+                        year %% 4 == 2 ~ year - 2,
+                        year %% 4 == 3 ~ year - 3),
+    cd_muni_ibge = as.character(cd_muni_ibge),
+    across(where(is.numeric), ~ ifelse(is.nan(.), NA, .))) |> 
+  group_by(cd_muni_ibge, mandato) |> 
+  summarise(
+    y_beneficio_medi_tot    = mean(beneficio_medi_tot, na.rm = TRUE),
+    y_qt_equipes_sf         = mean(qt_equipes_sf, na.rm = TRUE),
+    y_acsimplantado         = mean(acsimplantado, na.rm = TRUE),
+    y_unidades_caps         = mean(unidades_caps, na.rm = TRUE),
+    # y_familias_beneficiadas = mean(familias_beneficiadas, na.rm = TRUE),
+    # y_valor_repassado       = sum(valor_repassado, na.rm = TRUE),
+    .groups = 'drop')
+
+
+
+```
+
+```{r}
+
+df_candidates <- readRDS('../../dados/TSE/TSE_tratado_completo.RDS')
+
+df_rdd_adriano <- df_candidates |>
+  filter(!ano %in% c('2004', '2020')) |> 
+  left_join(df_adriano, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni_ibge')) |> 
+  
+  mutate(y_beneficio_medi_tot = (y_beneficio_medi_tot/cov_municipio_pop_total)*10000,
+         y_qt_equipes_sf = (y_qt_equipes_sf*3450)/cov_municipio_pop_total,
+         y_acsimplantado = (y_acsimplantado*750)/cov_municipio_pop_total,
+         y_unidades_caps = (y_unidades_caps/cov_municipio_pop_total)*10000)
+         
+
+
+  
+  
+```
+
+
+
+
+```{r}
+
+RDD <- function(df, x, y) {
+
+  library(rdrobust)
+  
+  df <- df |>
+    filter(
+      !is.na({{x}}),
+      !is.na({{y}}),
+      !is.na(ano),
+      !is.na(cov_reeleicao),
+      !is.na(cov_candidato_partido),
+      !is.na(cov_candidato_patrimonio),
+      !is.na(cov_candidato_despesa_campanha_rs),
+      !is.na(cov_candidato_educacao_agrupada),
+      !is.na(cov_candidato_idade),
+      !is.na(cov_municipio_proporcao_mulheres_pop),
+      !is.na(cov_municipio_pop_total),
+      !is.na(cd_municipio_ibge_7)
+    )
+
+  controls <- model.matrix(
+    ~ ano 
+    + cov_reeleicao + cov_candidato_partido + cov_candidato_patrimonio + cov_candidato_despesa_campanha_rs + cov_candidato_educacao_agrupada + cov_candidato_idade
+     + cov_municipio_proporcao_mulheres_pop + cov_municipio_pop_total
+    ,data = df)
+
+  x_vals <- df |> pull({{x}})
+  y_vals <- df |> pull({{y}})
+
+  regressao <- rdrobust(
+    x = x_vals,
+    y = y_vals,
+    covs = controls,
+    cluster = df$cd_municipio_ibge_7,
+    all = TRUE,
+    kernel = "triangular"
+  )
+
+  print(summary(regressao))
+
+  h <- regressao$bws[1]
+
+  dados_filtrados <- tibble(x = x_vals, y = y_vals) |>
+    filter(abs(x) <= h)
+
+  ymax <- mean(dados_filtrados$y)
+
+  rdplot(
+    y = y_vals,
+    x = x_vals,
+    kernel = "triangular",
+    x.lim = c(-h, h),
+    y.lim = c(0, ymax * 2),
+    nbins = 100,
+    p = 1
+  )
+}
+
+```
+
+
+```{r}
+df_rdd_adriano |> 
+  RDD(val_margem_vitoria_feminina, y_unidades_caps)
+
+```
+
+```{r}
+# arrange(cd_muni_ibge, mandato) |> 
+  # group_by(cd_muni_ibge) |> 
+  # 
+  # mutate(across(
+  #   .cols = starts_with("y_"),
+  #   .fns = ~ lag(.),
+  #   .names = "{.col}_previous"
+  # ))
+  # 
+  # 
+  # 
+  # arrange(cd_muni_res, mandato) |> 
+  # group_by(cd_muni_res) |> 
+  # mutate(across(
+  #   .cols = starts_with("y_"),       
+  #   .fns = ~ lag(.),  
+  #   .names = "{.col}_previous"))
+  
+```
+
+
+

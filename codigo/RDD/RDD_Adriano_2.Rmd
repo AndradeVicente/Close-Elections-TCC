@@ -3,6 +3,10 @@ title: "adriano 2"
 output: html_document
 date: "2025-09-25"
 ---
+```{r}
+install.packages("rdrobust")
+```
+
 
 ```{r}
 library(tidyverse)
@@ -10,7 +14,7 @@ library(haven)
 ```
 
 ```{r}
-df_adriano_raw <- read_dta('../../dados/Adriano/Base_consolidada_TCC_base3.dta')
+df_adriano_raw <- read_dta('../../codigo/Bases/Base_cosolidada_TCC_base3.dta')
 
 df_adriano_raw |> view()
 ```
@@ -103,61 +107,61 @@ consolidado_tcc_2 <- df_adriano_raw |>
     y_sinan_mental_incapacidade_total = incapacidade_perm_tot,
     
     #sinan violencia
-    y_sinan_reincidencia   = OUT_VEZES,
-    y_sinan_autoprovocada = LES_AUTOP,
-    y_sinan_viol_fisica = VIOL_FISIC,
-    y_sinan_viol_financeira = VIOL_FINAN,
-    y_sinan_viol_psicologica = VIOL_PSICO,
-    y_sinan_viol_tortura = VIOL_TORT,
-    y_sinan_viol_sexual = VIOL_SEXU,
-    y_sinan_viol_trafico_humano = VIOL_TRAF,
-    y_sinan_viol_negligencia = VIOL_NEGLI,
-    y_sinan_viol_trabalho_infantil = VIOL_INFAN,
-    y_sinan_viol_intervencao_legal = VIOL_LEGAL,
-    y_sinan_viol_outros = VIOL_OUTR,
+    y_sinan_reincidencia   = OUT_VEZES_inter,
+    y_sinan_autoprovocada = LES_AUTOP_inter,
+    y_sinan_viol_fisica = VIOL_FISIC_inter,
+    y_sinan_viol_financeira = VIOL_FINAN_inter,
+    y_sinan_viol_psicologica = VIOL_PSICO_inter,
+    y_sinan_viol_tortura = VIOL_TORT_inter,
+    y_sinan_viol_sexual = VIOL_SEXU_inter,
+    y_sinan_viol_trafico_humano = VIOL_TRAF_inter,
+    y_sinan_viol_negligencia = VIOL_NEGLI_inter,
+    y_sinan_viol_trabalho_infantil = VIOL_INFAN_inter,
+    y_sinan_viol_intervencao_legal = VIOL_LEGAL_inter,
+    y_sinan_viol_outros = VIOL_OUTR_inter,
     
     #sinan meio de agressao
-    y_sinan_agressao_forca = AG_FORCA,
-    y_sinan_agressao_enforcamento = AG_ENFOR,
-    y_sinan_agressao_objeto_contudente = AG_OBJETO,
-    y_sinan_agressao_corte = AG_CORTE,
-    y_sinan_agressao_quente = AG_QUENTE,
-    y_sinan_agressao_evenenamento = AG_ENVEN,
-    y_sinan_agressao_fogo = AG_FOGO,
-    y_sinan_agressao_ameaca = AG_AMEACA,
-    y_sinan_agressao_outros = AG_OUTROS,
+    y_sinan_agressao_forca = AG_FORCA_inter,
+    y_sinan_agressao_enforcamento = AG_ENFOR_inter,
+    y_sinan_agressao_objeto_contudente = AG_OBJETO_inter,
+    y_sinan_agressao_corte = AG_CORTE_inter,
+    y_sinan_agressao_quente = AG_QUENTE_inter,
+    y_sinan_agressao_evenenamento = AG_ENVEN_inter,
+    y_sinan_agressao_fogo = AG_FOGO_inter,
+    y_sinan_agressao_ameaca = AG_AMEACA_inter,
+    y_sinan_agressao_outros = AG_OUTROS_inter,
     
     #sinan violencia sexual
-    y_sinan_sex_assedio = SEX_ASSEDI,
-    y_sinan_sex_estupro = SEX_ESTUPR,
-    y_sinan_sex_pudor = SEX_PUDOR,
-    y_sinan_sex_pornografia_infantil = SEX_PORNO,
-    y_sinan_sex_exploracao_sexual = SEX_EXPLO,
-    y_sinan_sex_outro = SEX_OUTRO,
+    y_sinan_sex_assedio = SEX_ASSEDI_inter,
+    y_sinan_sex_estupro = SEX_ESTUPR_inter,
+    y_sinan_sex_pudor = SEX_PUDOR_inter,
+    y_sinan_sex_pornografia_infantil = SEX_PORNO_inter,
+    y_sinan_sex_exploracao_sexual = SEX_EXPLO_inter,
+    y_sinan_sex_outro = SEX_OUTRO_inter,
     
     #sinan procedimento por tipo
-    y_sinan_procedimento_aborto = PROC_ABORT,
-    y_sinan_procedimento_coleta_semen = PROC_SEMEN,
-    y_sinan_procedimento_coleta_vaginal = PROC_VAGIN,
-    y_sinan_procedimento_contracepcao_emerg = PROC_CONTR,
+    y_sinan_procedimento_aborto = PROC_ABORT_inter,
+    y_sinan_procedimento_coleta_semen = PROC_SEMEN_inter,
+    y_sinan_procedimento_coleta_vaginal = PROC_VAGIN_inter,
+    y_sinan_procedimento_contracepcao_emerg = PROC_CONTR_inter,
     
     # ocorencias no momento da notificacao
-    y_sinan_notificacao_dst = CONS_DST,
-    y_sinan_notificacao_suicidio = CONS_SUIC,
-    y_sinan_notificacao_mental = CONS_MENT,
-    y_sinan_notificacao_estresse_pos_tra = CONS_ESTRE,
+    y_sinan_notificacao_dst = CONS_DST_inter,
+    y_sinan_notificacao_suicidio = CONS_SUIC_inter,
+    y_sinan_notificacao_mental = CONS_MENT_inter,
+    y_sinan_notificacao_estresse_pos_tra = CONS_ESTRE_inter,
     
     #encaminhamento
-    y_sinan_enc_rede_saude = ENC_SAUDE,
-    y_sinan_enc_abrigo = ENC_ABRIGO,
-    y_sinan_enc_sentinela = ENC_SENTIN,
-    y_sinan_enc_deam = ENC_DEAM,
-    y_sinan_enc_dpca = ENC_DPCA,
-    y_sinan_enc_delegacia_outra = ENC_DELEG,
-    y_sinan_enc_mp = ENC_MPU,
-    y_sinan_enc_mulher_abrigo = ENC_MULHER,
-    y_sinan_enc_creas = ENC_CREAS,
-    y_sinan_enc_iml = ENC_IML) |> 
+    y_sinan_enc_rede_saude = ENC_SAUDE_inter,
+    y_sinan_enc_abrigo = ENC_ABRIGO_inter,
+    y_sinan_enc_sentinela = ENC_SENTIN_inter,
+    y_sinan_enc_deam = ENC_DEAM_inter,
+    y_sinan_enc_dpca = ENC_DPCA_inter,
+    y_sinan_enc_delegacia_outra = ENC_DELEG_inter,
+    y_sinan_enc_mp = ENC_MPU_inter,
+    y_sinan_enc_mulher_abrigo = ENC_MULHER_inter,
+    y_sinan_enc_creas = ENC_CREAS_inter,
+    y_sinan_enc_iml = ENC_IML_inter) |> 
   
   mutate(
     mandato = case_when(year %% 4 == 0 ~ year - 4,
@@ -183,7 +187,7 @@ consolidado_tcc_2 <- df_adriano_raw |>
 
 ```{r}
 
-df_candidates <- readRDS('../../dados/TSE/TSE_tratado_completo.RDS')
+df_candidates <- readRDS('../../codigo/TSE/TSE_tratado_completo.RDS')
 
 df_rdd_adriano <- df_candidates |>
   filter(!ano %in% c('2004')) |> 
@@ -313,15 +317,118 @@ rdplot(
 
 ```
 
+SIA - Duda
+
+```{r}
+library(dplyr)
+library(purrr)
+
+# função auxiliar para ler o label da coluna
+get_label <- function(x) {
+  lb <- attr(x, "label", exact = TRUE)
+  if (is.null(lb)) NA_character_ else as.character(lb)
+}
+
+# apenas colunas proc_01..proc_99 (ajuste o regex se quiser)
+proc_df <- df_adriano_raw %>% select(matches("^proc_\\d{2}$"))
+
+descricoes <- tibble(
+  variavel  = names(proc_df),
+  descricao = map_chr(proc_df, get_label)
+)
+
+descricoes
+
+
+```
+
+#ab: atenção básica; cap: centro de atenção psicossocial
+
+```{r}
+
+consolidado_sia_aggreg_1 <- df_adriano_raw |> 
+
+  select(
+    
+    cd_muni = ibge,
+    year,
+
+    y_sia_serv_resid_terap = proc_01,
+    y_sia_serv_resid_terap_transit = proc_02,
+    y_sia_equipes_pessoa_prob_droga = proc_03,
+    y_sia_pratica_corp_cap = proc_04,
+    y_sia_matric_eq_ab = proc_05,
+    y_sia_atend_indiv_cap = proc_06,
+    y_sia_atend_gp_cap = proc_07,
+    y_sia_atend_familia_cap = proc_08,
+    y_sia_atend_inic_cap = proc_09,
+    y_sia_atend_dom_pac_cap = proc_10,
+    y_sia_abord_cog_fumante = proc_11,
+    y_sia_acomp_pac_saude_mental = proc_12,
+    y_sia_atend_oficina_terap1 = proc_13,
+    y_sia_atend_oficina_terap2 = proc_14,
+    y_sia_atend_psico_gp = proc_15,
+    y_sia_atend_psico_indiv = proc_16,
+    y_sia_acomp_adulto_sofre_drogas = proc_17,
+    y_sia_acomp_jovem_sofre_drogas = proc_18,
+    y_sia_acomp_neuropsi_paciente_reab = proc_20,
+    y_sia_atend_urg_atencao_especializada = proc_21)|> 
+  
+  mutate(
+    mandato = case_when(year %% 4 == 0 ~ year - 4,
+                        year %% 4 == 1 ~ year - 1,
+                        year %% 4 == 2 ~ year - 2,
+                        year %% 4 == 3 ~ year - 3),
+    cd_muni = as.character(cd_muni),
+    y_sia_servi_resid_terap= y_sia_serv_resid_terap+y_sia_serv_resid_terap_transit,
+    y_sia_atend_cap=y_sia_atend_indiv_cap+y_sia_atend_gp_cap+y_sia_atend_familia_cap+y_sia_atend_inic_cap+y_sia_atend_dom_pac_cap+y_sia_acomp_pac_saude_mental+y_sia_atend_psico_gp+y_sia_atend_psico_indiv,
+    y_sia_atend_oficina= y_sia_atend_oficina_terap1+y_sia_atend_oficina_terap2,
+    y_sia_acomp_drogas=y_sia_acomp_adulto_sofre_drogas+y_sia_acomp_jovem_sofre_drogas) |> 
+  group_by(cd_muni, mandato) |> 
+  
+  summarise(across(
+    .cols = starts_with("y_"),       
+    .fns = ~ sum(.),  
+    .names = "{.col}")) |> 
+  
+  mutate(across(
+    .cols = starts_with("y_"),
+    .fns = ~ replace_na(., 0),
+    .names = "{.col}"))
 
 
 
+```
 
 
+```{r}
+
+df_rdd_sia_aggreg <- df_candidates |>
+  filter(!ano %in% c('2004')) |> 
+  left_join(consolidado_sia_aggreg_1, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni')) |> 
+  
+    mutate(across(
+    .cols = starts_with("y_"),
+    .fns = ~ (./cov_municipio_pop_total)*100000,
+    .names = "{.col}")) |> 
+    
+    mutate(across(
+    .cols = starts_with("y_"),
+    .fns = ~ replace_na(., 0),
+    .names = "{.col}"))
+
+```
+
+```{r}
+library(purrr)
+library(rlang)
+
+y_vars <- names(df_rdd_sia_aggreg)[grepl("^y_", names(df_rdd_sia_aggreg))]
+
+map(y_vars, ~ {RDD(df_rdd_sia_aggreg, x = val_margem_vitoria_feminina, y = !!sym(.x))})
 
 
-
-
+```
 
 
 
