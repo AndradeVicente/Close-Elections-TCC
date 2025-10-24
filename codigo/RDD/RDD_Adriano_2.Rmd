@@ -419,6 +419,85 @@ map(y_vars, ~ {RDD(df_rdd_sia, x = val_margem_vitoria_feminina, y = !!sym(.x))})
 
 ```
 
+## SIH - Duda
+descrição e label variáveis
+```{r}
+
+
+get_label <- function(x) {
+  lb <- attr(x, "label", exact = TRUE)
+  if (is.null(lb)) NA_character_ else as.character(lb)
+}
+
+# Seleciona todas as colunas que começam com F (maiúsculo)
+f_df <- df_adriano_raw %>% 
+  select(matches("^F"))
+
+# Extrai nomes e labels
+descricoes_F <- tibble(
+  variavel  = names(f_df),
+  descricao = map_chr(f_df, get_label)
+)
+
+descricoes_F
+
+```
+
+Curta: hospitalização de curta duração/ Longa; longa duração.
+```{r}
+
+consolidado_sih <- df_adriano_raw |> 
+
+  select(
+    
+    cd_muni = ibge,
+    year,
+
+    y_sih_desordem_mental_curta = F00_F09_curta_fem,
+    y_sih_desordem_mental_por_drogas_curta = F10_F19_curta_fem,
+    y_sih_desordem_humor_curta = F30_F39_curta_fem,
+    y_sih_desordem_mental_por_estresse_curta = F40_F49_curta_fem,
+    y_sih_desordem_mental_esquizofrenia_curta = F20_F29_curta_fem,
+    y_sih_sindromes_comportamentais_curta = F50_F59_curta_fem,
+    y_sih_desordem_mental_personalidade_curta = F60_F69_curta_fem,
+    y_sih_retardo_mental_curta = F70_F79_curta_fem,
+    y_sih_desordem_mental_infancia_adolesc_curta = F90_F99_curta_fem,
+    y_sih_desordem_mental_comportamento_curta = F00_F99_curta_fem,
+    y_sih_desordem_mental_long = F00_F09_longa_fem,
+    y_sih_desordem_mental_por_drogas_long = F10_F19_longa_fem,
+    y_sih_desordem_humor_long = F30_F39_longa_fem,
+    y_sih_desordem_mental_por_estresse_long = F40_F49_longa_fem,
+    y_sih_desordem_mental_esquizofrenia_long = F20_F29_longa_fem,
+    y_sih_sindromes_comportamentais_long = F50_F59_longa_fem,
+    y_sih_desordem_mental_personalidade_long = F60_F69_longa_fem,
+    y_sih_retardo_mental_long = F70_F79_longa_fem,
+    y_sih_desordem_mental_infancia_adolesc_long = F90_F99_longa_fem,
+    y_sih_desordem_mental_comportamento_long = F00_F99_longa_fem)|> 
+  
+  mutate(
+    mandato = case_when(year %% 4 == 0 ~ year - 4,
+                        year %% 4 == 1 ~ year - 1,
+                        year %% 4 == 2 ~ year - 2,
+                        year %% 4 == 3 ~ year - 3),
+    cd_muni = as.character(cd_muni),
+    y_sih_hosp_desordem_mental_curta=y_sih_desordem_mental_curta+y_sih_desordem_mental_por_drogas_curta+y_sih_desordem_humor_curta+y_sih_desordem_mental_por_estresse_curta+y_sih_desordem_mental_esquizofrenia_curta+y_sih_sindromes_comportamentais_curta+y_sih_desordem_mental_personalidade_curta+y_sih_retardo_mental_curta+y_sih_desordem_mental_infancia_adolesc_curta+y_sih_desordem_mental_comportamento_curta,
+    y_sih_hosp_desordem_mental_longa=y_sih_desordem_mental_long+y_sih_desordem_mental_por_drogas_long+y_sih_desordem_humor_long+y_sih_desordem_mental_por_estresse_long+y_sih_desordem_mental_esquizofrenia_long+y_sih_sindromes_comportamentais_long+y_sih_desordem_mental_personalidade_long+y_sih_retardo_mental_long+y_sih_desordem_mental_infancia_adolesc_long+y_sih_desordem_mental_comportamento_long) |> 
+  group_by(cd_muni, mandato) |> 
+  
+  summarise(across(
+    .cols = starts_with("y_"),       
+    .fns = ~ sum(.),  
+    .names = "{.col}")) |> 
+  
+  mutate(across(
+    .cols = starts_with("y_"),
+    .fns = ~ replace_na(., 0),
+    .names = "{.col}"))
+
+
+
+```
+
 # CBO
 
 verificar varíaveis e labels
