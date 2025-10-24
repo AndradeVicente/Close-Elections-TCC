@@ -3,22 +3,110 @@ title: "adriano 2"
 output: html_document
 date: "2025-09-25"
 ---
-
+##Bibliotecas
 ```{r}
 library(tidyverse)
 library(haven)
+library(dplyr)
+library(purrr)
 ```
 
+## Bases raw
 ```{r}
 df_adriano_raw <- read_dta('../../dados/Bases/Base_cosolidada_TCC_base3.dta')
 
 df_adriano_raw |> view()
 ```
 
+```{r}
+df_candidates <- readRDS('../../dados/TSE_tratado_completo.RDS')
+```
 
+## Função RDD
+```{r}
+RDD <- function(df, x, y) {
+  library(rdrobust)
+  library(rlang)
+
+  # pega o nome da variável y em formato string
+  y_name <- as_label(enquo(y))
+
+  df <- df |>
+    filter(
+      !is.na({{x}}),
+      !is.na({{y}}),
+      !is.na(ano),
+      !is.na(cov_reeleicao),
+      !is.na(cov_candidato_partido),
+      !is.na(cov_candidato_educacao_agrupada),
+      !is.na(cov_candidato_idade),
+      !is.na(cov_municipio_proporcao_mulheres_pop),
+      !is.na(cov_municipio_pop_total),
+      !is.na(cd_municipio_ibge_7)
+    )
+  
+    # se não tiver dados suficientes, pula
+  if (nrow(df) < 30 || length(unique(df |> pull({{y}}))) < 5) {
+    cat("\n====================\n")
+    cat("Variável:", y_name, "- não tem dados suficientes. Pulando.\n")
+    return(NULL)
+  }
+
+
+  controls <- model.matrix(
+    ~ ano 
+    + cov_reeleicao
+    + cov_candidato_partido
+    + cov_candidato_educacao_agrupada
+    + cov_candidato_idade
+    + cov_municipio_proporcao_mulheres_pop
+    + cov_municipio_pop_total
+    ,data = df)
+
+  x_vals <- df |> pull({{x}})
+  y_vals <- df |> pull({{y}})
+
+  regressao <- rdrobust(
+    x = x_vals,
+    y = y_vals,
+    covs = controls,
+    cluster = df$cd_municipio_ibge_7,
+    all = TRUE,
+    kernel = "triangular"
+  )
+
+  cat("\n====================\n")
+  cat("Resultado para variável:", y_name, "\n")
+  print(summary(regressao))
+
+  h <- regressao$bws[1]
+
+  dados_filtrados <- tibble(x = x_vals, y = y_vals) |>
+    filter(abs(x) <= h)
+
+  ymax <- mean(dados_filtrados$y)
+
+  rdplot(
+    y = y_vals,
+    x = x_vals,
+    kernel = "triangular",
+    x.lim = c(-h, h),
+    y.lim = c(0, ymax * 2),
+    nbins = 100,
+    p = 4,
+    title = paste("RDD Plot -", y_name),
+    y.label = y_name,
+    x.label = as_label(enquo(x))
+  )
+}
+```
+
+
+## Sinan
+base sinan filtrando para casos de mulheres
 ```{r}
 
-consolidado_tcc_3 <- df_adriano_raw |> 
+consolidado_sinan_fem <- df_adriano_raw |> 
 
   select(
     
@@ -75,9 +163,10 @@ consolidado_tcc_3 <- df_adriano_raw |>
 
 ```
 
+base sinan geral 
 ```{r}
 
-consolidado_tcc_2 <- df_adriano_raw |> 
+consolidado_sinan <- df_adriano_raw |> 
 
   select(
     
@@ -183,11 +272,9 @@ consolidado_tcc_2 <- df_adriano_raw |>
 
 ```{r}
 
-df_candidates <- readRDS('../../codigo/TSE/TSE_tratado_completo.RDS')
-
-df_rdd_adriano <- df_candidates |>
+df_rdd_sinan <- df_candidates |>
   filter(!ano %in% c('2004')) |> 
-  left_join(consolidado_tcc_3, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni')) |> 
+  left_join(consolidado_sinan, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni')) |> 
   
     mutate(across(
     .cols = starts_with("y_"),
@@ -201,110 +288,22 @@ df_rdd_adriano <- df_candidates |>
 
 ```
 
+RDD sinan
 ```{r}
 
-df_rdd_adriano |> count(ano)
+y_vars <- names(df_rdd_sinan)[grepl("^y_", names(df_rdd_sinan))]
 
-```
-
-```{r}
-RDD <- function(df, x, y) {
-  library(rdrobust)
-  library(rlang)
-
-  # pega o nome da variável y em formato string
-  y_name <- as_label(enquo(y))
-
-  df <- df |>
-    filter(
-      !is.na({{x}}),
-      !is.na({{y}}),
-      !is.na(ano),
-      !is.na(cov_reeleicao),
-      !is.na(cov_candidato_partido),
-      !is.na(cov_candidato_educacao_agrupada),
-      !is.na(cov_candidato_idade),
-      !is.na(cov_municipio_proporcao_mulheres_pop),
-      !is.na(cov_municipio_pop_total),
-      !is.na(cd_municipio_ibge_7)
-    )
-  
-    # se não tiver dados suficientes, pula
-  if (nrow(df) < 30 || length(unique(df |> pull({{y}}))) < 5) {
-    cat("\n====================\n")
-    cat("Variável:", y_name, "- não tem dados suficientes. Pulando.\n")
-    return(NULL)
-  }
-
-
-  controls <- model.matrix(
-    ~ ano 
-    + cov_reeleicao
-    + cov_candidato_partido
-    + cov_candidato_educacao_agrupada
-    + cov_candidato_idade
-    + cov_municipio_proporcao_mulheres_pop
-    + cov_municipio_pop_total
-    ,data = df)
-
-  x_vals <- df |> pull({{x}})
-  y_vals <- df |> pull({{y}})
-
-  regressao <- rdrobust(
-    x = x_vals,
-    y = y_vals,
-    covs = controls,
-    cluster = df$cd_municipio_ibge_7,
-    all = TRUE,
-    kernel = "triangular"
-  )
-
-  cat("\n====================\n")
-  cat("Resultado para variável:", y_name, "\n")
-  print(summary(regressao))
-
-  h <- regressao$bws[1]
-
-  dados_filtrados <- tibble(x = x_vals, y = y_vals) |>
-    filter(abs(x) <= h)
-
-  ymax <- mean(dados_filtrados$y)
-
-  rdplot(
-    y = y_vals,
-    x = x_vals,
-    kernel = "triangular",
-    x.lim = c(-h, h),
-    y.lim = c(0, ymax * 2),
-    nbins = 100,
-    p = 4,
-    title = paste("RDD Plot -", y_name),
-    y.label = y_name,
-    x.label = as_label(enquo(x))
-  )
-}
-```
-
-
-
-```{r}
-library(purrr)
-library(rlang)
-
-y_vars <- names(df_rdd_adriano)[grepl("^y_", names(df_rdd_adriano))]
-
-map(y_vars, ~ {RDD(df_rdd_adriano, x = val_margem_vitoria_feminina, y = !!sym(.x))})
-
+map(y_vars, ~ {RDD(df_rdd_sinan, x = val_margem_vitoria_feminina, y = !!sym(.x))})
 
 ```
 
 ```{r}
 
-RDD(df_rdd_adriano, x = val_margem_vitoria_feminina, y = y_sinan_viol_psicologica)
+RDD(df_rdd_sinan, x = val_margem_vitoria_feminina, y = y_sinan_viol_psicologica)
 
 rdplot(
-  y = df_rdd_adriano$y_sinan_viol_psicologica,
-  x = df_rdd_adriano$val_margem_vitoria_feminina,
+  y = df_rdd_sinan$y_sinan_viol_psicologica,
+  x = df_rdd_sinan$val_margem_vitoria_feminina,
   kernel = "triangular",
   x.lim = c(-0.141, 0.141),
   # y.lim = c(30, 100),
@@ -313,19 +312,15 @@ rdplot(
 
 ```
 
-SIA - Duda
-
+## SIA - Duda
+descrição e label variáveis
 ```{r}
-library(dplyr)
-library(purrr)
 
-# função auxiliar para ler o label da coluna
 get_label <- function(x) {
   lb <- attr(x, "label", exact = TRUE)
   if (is.null(lb)) NA_character_ else as.character(lb)
 }
 
-# apenas colunas proc_01..proc_99 (ajuste o regex se quiser)
 proc_df <- df_adriano_raw %>% select(matches("^proc_\\d{2}$"))
 
 descricoes <- tibble(
@@ -338,11 +333,11 @@ descricoes
 
 ```
 
-#ab: atenção básica; cap: centro de atenção psicossocial
+ab: atenção básica; cap: centro de atenção psicossocial
 
 ```{r}
 
-consolidado_sia_aggreg_1 <- df_adriano_raw |> 
+consolidado_sia <- df_adriano_raw |> 
 
   select(
     
@@ -399,9 +394,9 @@ consolidado_sia_aggreg_1 <- df_adriano_raw |>
 
 ```{r}
 
-df_rdd_sia_aggreg <- df_candidates |>
+df_rdd_sia <- df_candidates |>
   filter(!ano %in% c('2004')) |> 
-  left_join(consolidado_sia_aggreg_1, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni')) |> 
+  left_join(consolidado, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni')) |> 
   
     mutate(across(
     .cols = starts_with("y_"),
@@ -416,93 +411,78 @@ df_rdd_sia_aggreg <- df_candidates |>
 ```
 
 ```{r}
-library(purrr)
-library(rlang)
 
-y_vars <- names(df_rdd_sia_aggreg)[grepl("^y_", names(df_rdd_sia_aggreg))]
+y_vars <- names(df_rdd_sia)[grepl("^y_", names(df_rdd_sia))]
 
-map(y_vars, ~ {RDD(df_rdd_sia_aggreg, x = val_margem_vitoria_feminina, y = !!sym(.x))})
+map(y_vars, ~ {RDD(df_rdd_sia, x = val_margem_vitoria_feminina, y = !!sym(.x))})
 
 
 ```
-SIH - Duda
 
+# CBO
+
+verificar varíaveis e labels
 ```{r}
-library(dplyr)
-library(purrr)
 
-# função auxiliar para ler o label da coluna
-get_label <- function(x) {
-  lb <- attr(x, "label", exact = TRUE)
-  if (is.null(lb)) NA_character_ else as.character(lb)
-}
+vars_cbo <- names(df_adriano_raw)[grepl("^cbo", names(df_adriano_raw), ignore.case = TRUE)]
 
-# apenas colunas proc_01..proc_99 (ajuste o regex se quiser)
-proc_df <- df_adriano_raw %>% select(matches("^proc_\\d{2}$"))
-
-descricoes <- tibble(
-  variavel  = names(proc_df),
-  descricao = map_chr(proc_df, get_label)
+tibble(
+  variavel   = vars_cbo,
+  descricao  = sapply(vars_cbo, function(v) attr(df_adriano_raw[[v]], "label"))
 )
 
-descricoes
-
 
 ```
 
-#ab: atenção básica; cap: centro de atenção psicossocial
 
+criar a base com variáveis CBO em variação (ab = atenção básica)
 ```{r}
-
-consolidado_sia_aggreg_1 <- df_adriano_raw |> 
-
+consolidado_cbo <- df_adriano_raw |> 
   select(
-    
-    cd_muni = ibge,
+    cd_muni_ibge = ibge,
     year,
-
-    y_sia_serv_resid_terap = proc_01,
-    y_sia_serv_resid_terap_transit = proc_02,
-    y_sia_equipes_pessoa_prob_droga = proc_03,
-    y_sia_pratica_corp_cap = proc_04,
-    y_sia_matric_eq_ab = proc_05,
-    y_sia_atend_indiv_cap = proc_06,
-    y_sia_atend_gp_cap = proc_07,
-    y_sia_atend_familia_cap = proc_08,
-    y_sia_atend_inic_cap = proc_09,
-    y_sia_atend_dom_pac_cap = proc_10,
-    y_sia_abord_cog_fumante = proc_11,
-    y_sia_acomp_pac_saude_mental = proc_12,
-    y_sia_atend_oficina_terap1 = proc_13,
-    y_sia_atend_oficina_terap2 = proc_14,
-    y_sia_atend_psico_gp = proc_15,
-    y_sia_atend_psico_indiv = proc_16,
-    y_sia_acomp_adulto_sofre_drogas = proc_17,
-    y_sia_acomp_jovem_sofre_drogas = proc_18,
-    y_sia_acomp_neuropsi_paciente_reab = proc_20,
-    y_sia_atend_urg_atencao_especializada = proc_21)|> 
-  
+    y_cbo_medico_diag_terap       = CBO_2253,
+    y_cbo_ass_social              = CBO_2216_05,
+    y_cbo_psico_clinico           = CBO_2215_10,
+    y_cbo_psico_e_psicanalista    = CBO_2515,
+    y_cbo_psiquiatra              = CBO_2251_33,
+    y_cbo_terapeuta_ocupac        = CBO_2239_05,
+    y_cbo_medico_diag_terap_ab    = CBO_2253_atbas,
+    y_cbo_psico_clinico_ab        = CBO_2215_10_atbas,
+    y_cbo_ass_social_ab           = CBO_2216_05_atbas,
+    y_cbo_psico_e_psicanalista_ab = CBO_2515_atbas,
+    y_cbo_psiquiatra_ab           = CBO_2251_33_atbas,
+    y_cbo_terapeuta_ocupac_ab     = CBO_2239_05_atbas
+  ) |> 
   mutate(
-    mandato = case_when(year %% 4 == 0 ~ year - 4,
-                        year %% 4 == 1 ~ year - 1,
-                        year %% 4 == 2 ~ year - 2,
-                        year %% 4 == 3 ~ year - 3),
-    cd_muni = as.character(cd_muni),
-    y_sia_servi_resid_terap= y_sia_serv_resid_terap+y_sia_serv_resid_terap_transit,
-    y_sia_atend_cap=y_sia_atend_indiv_cap+y_sia_atend_gp_cap+y_sia_atend_familia_cap+y_sia_atend_inic_cap+y_sia_atend_dom_pac_cap+y_sia_acomp_pac_saude_mental+y_sia_atend_psico_gp+y_sia_atend_psico_indiv,
-    y_sia_atend_oficina= y_sia_atend_oficina_terap1+y_sia_atend_oficina_terap2,
-    y_sia_acomp_drogas=y_sia_acomp_adulto_sofre_drogas+y_sia_acomp_jovem_sofre_drogas) |> 
-  group_by(cd_muni, mandato) |> 
-  
-  summarise(across(
-    .cols = starts_with("y_"),       
-    .fns = ~ sum(.),  
-    .names = "{.col}")) |> 
-  
-  mutate(across(
-    .cols = starts_with("y_"),
-    .fns = ~ replace_na(., 0),
-    .names = "{.col}"))
+    mandato = case_when(
+      year %% 4 == 0 ~ year - 4,
+      year %% 4 == 1 ~ year - 1,
+      year %% 4 == 2 ~ year - 2,
+      year %% 4 == 3 ~ year - 3
+    ),
+    cd_muni_ibge = as.character(cd_muni_ibge),
+    across(where(is.numeric), ~ ifelse(is.nan(.), NA, .)),
+
+    # novas variáveis agregadas
+    y_cbo_medicos_saude_mental        = y_cbo_medico_diag_terap + y_cbo_psiquiatra,
+    y_cbo_primeiro_atend_saude_mental = y_cbo_ass_social + y_cbo_psico_clinico + y_cbo_psico_e_psicanalista + y_cbo_psiquiatra + y_cbo_terapeuta_ocupac,
+    y_cbo_medicos_saude_mental_ab     = y_cbo_medico_diag_terap_ab + y_cbo_psiquiatra_ab,
+    y_cbo_primeiro_atend_saude_mental_ab = y_cbo_ass_social_ab + y_cbo_psico_clinico_ab + y_cbo_psico_e_psicanalista_ab + y_cbo_psiquiatra_ab + y_cbo_terapeuta_ocupac_ab,
+    y_cbo_saude_mental    = y_cbo_medico_diag_terap + y_cbo_psiquiatra + y_cbo_ass_social + y_cbo_psico_clinico + y_cbo_psico_e_psicanalista + y_cbo_terapeuta_ocupac,
+    y_cbo_saude_mental_ab = y_cbo_medico_diag_terap_ab + y_cbo_psiquiatra_ab + y_cbo_ass_social_ab + y_cbo_psico_clinico_ab + y_cbo_psico_e_psicanalista_ab + y_cbo_terapeuta_ocupac_ab
+  ) |> 
+  group_by(cd_muni_ibge, mandato) |> 
+  summarise(
+    across(starts_with("y_"), ~ sum(., na.rm = TRUE)),
+    .groups = "drop"
+  ) |> 
+  arrange(cd_muni_ibge, mandato) |> 
+  group_by(cd_muni_ibge) |> 
+  mutate(
+    across(starts_with("y_"), ~ . - lag(.))
+  ) |> 
+  ungroup()
 
 
 
@@ -511,9 +491,9 @@ consolidado_sia_aggreg_1 <- df_adriano_raw |>
 
 ```{r}
 
-df_rdd_sia_aggreg <- df_candidates |>
+df_rdd_cbo <- df_candidates |>
   filter(!ano %in% c('2004')) |> 
-  left_join(consolidado_sia_aggreg_1, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni')) |> 
+  left_join(consolidado_cbo, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni_ibge')) |> 
   
     mutate(across(
     .cols = starts_with("y_"),
@@ -528,19 +508,9 @@ df_rdd_sia_aggreg <- df_candidates |>
 ```
 
 ```{r}
-library(purrr)
-library(rlang)
 
-y_vars <- names(df_rdd_sia_aggreg)[grepl("^y_", names(df_rdd_sia_aggreg))]
+y_vars <- names(df_rdd_cbo)[grepl("^y_", names(df_rdd_cbo))]
 
-map(y_vars, ~ {RDD(df_rdd_sia_aggreg, x = val_margem_vitoria_feminina, y = !!sym(.x))})
-
+map(y_vars, ~ {RDD(df_rdd_cbo, x = val_margem_vitoria_feminina, y = !!sym(.x))})
 
 ```
-
-
-
-
-
-
-
