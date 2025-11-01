@@ -69,7 +69,7 @@ RDD <- function(df, x, y) {
   regressao <- rdrobust(
     x = x_vals,
     y = y_vals,
-    covs = controls,
+    #covs = controls,
     cluster = df$cd_municipio_ibge_7,
     all = TRUE,
     kernel = "triangular"
@@ -164,23 +164,81 @@ consolidado_sinan_fem <- df_adriano_raw |>
 ```
 
 base sinan geral 
+
 ```{r}
 
 consolidado_sinan <- df_adriano_raw |> 
-
   select(
-    
+    ibge, year,
+
+    total, afastamento_trabalho, afastamento_situacao,
+    habitos_psicofarmacos, habitos_fumar, habitos_drogas, habitos_alcool,
+    encaminhamento_caps, cura, cura_nao_conf, sexo_F, sexo_M,
+    obito_trabalho, incapacidade_temp, incapacidade_perm_par, incapacidade_perm_tot,
+
+    OUT_VEZES_masc, OUT_VEZES_fem,
+    LES_AUTOP_masc, LES_AUTOP_fem,
+    VIOL_FISIC_masc, VIOL_FISIC_fem,
+    VIOL_FINAN_masc, VIOL_FINAN_fem,
+    VIOL_PSICO_masc, VIOL_PSICO_fem,
+    VIOL_TORT_masc, VIOL_TORT_fem,
+    VIOL_SEXU_masc, VIOL_SEXU_fem,
+    VIOL_TRAF_masc, VIOL_TRAF_fem,
+    VIOL_NEGLI_masc, VIOL_NEGLI_fem,
+    VIOL_INFAN_masc, VIOL_INFAN_fem,
+    VIOL_LEGAL_masc, VIOL_LEGAL_fem,
+    VIOL_OUTR_masc, VIOL_OUTR_fem,
+
+    AG_FORCA_masc, AG_FORCA_fem,
+    AG_ENFOR_masc, AG_ENFOR_fem,
+    AG_OBJETO_masc, AG_OBJETO_fem,
+    AG_CORTE_masc, AG_CORTE_fem,
+    AG_QUENTE_masc, AG_QUENTE_fem,
+    AG_ENVEN_masc, AG_ENVEN_fem,
+    AG_FOGO_masc, AG_FOGO_fem,
+    AG_AMEACA_masc, AG_AMEACA_fem,
+    AG_OUTROS_masc, AG_OUTROS_fem,
+
+    SEX_ASSEDI_masc, SEX_ASSEDI_fem,
+    SEX_ESTUPR_masc, SEX_ESTUPR_fem,
+    SEX_PUDOR_masc, SEX_PUDOR_fem,
+    SEX_PORNO_masc, SEX_PORNO_fem,
+    SEX_EXPLO_masc, SEX_EXPLO_fem,
+    SEX_OUTRO_masc, SEX_OUTRO_fem,
+
+    PROC_ABORT_masc, PROC_ABORT_fem,
+    PROC_SEMEN_masc, PROC_SEMEN_fem,
+    PROC_VAGIN_masc, PROC_VAGIN_fem,
+    PROC_CONTR_masc, PROC_CONTR_fem,
+
+    CONS_DST_masc, CONS_DST_fem,
+    CONS_SUIC_masc, CONS_SUIC_fem,
+    CONS_MENT_masc, CONS_MENT_fem,
+    CONS_ESTRE_masc, CONS_ESTRE_fem,
+
+    ENC_SAUDE_masc, ENC_SAUDE_fem,
+    ENC_ABRIGO_masc, ENC_ABRIGO_fem,
+    ENC_SENTIN_masc, ENC_SENTIN_fem,
+    ENC_DEAM_masc, ENC_DEAM_fem,
+    ENC_DPCA_masc, ENC_DPCA_fem,
+    ENC_DELEG_masc, ENC_DELEG_fem,
+    ENC_MPU_masc, ENC_MPU_fem,
+    ENC_MULHER_masc, ENC_MULHER_fem,
+    ENC_CREAS_masc, ENC_CREAS_fem,
+    ENC_IML_masc, ENC_IML_fem
+  ) |> 
+
+  mutate(
     cd_muni = ibge,
-    year,
-    
-    #sinan mental
+
+    # sinan mental
     y_sinan_mental_total_ocor_trab = total,
     y_sinan_mental_afast_trab = afastamento_trabalho,
     y_sinan_mental_afast_trab_desgaste = afastamento_situacao,
     y_sinan_mental_hab_psicofarmacos = habitos_psicofarmacos,
     y_sinan_mental_hab_fumar = habitos_fumar,
     y_sinan_mental_hab_drogas = habitos_drogas,
-    y_sinan_mental_hab_alcool =habitos_alcool,
+    y_sinan_mental_hab_alcool = habitos_alcool,
     y_sinan_mental_encaminhamento_caps = encaminhamento_caps,
     y_sinan_mental_cura = cura,
     y_sinan_mental_cura_n_conf = cura_nao_conf,
@@ -190,82 +248,76 @@ consolidado_sinan <- df_adriano_raw |>
     y_sinan_mental_incapacidade_temp = incapacidade_temp,
     y_sinan_mental_incapacidade_parc = incapacidade_perm_par,
     y_sinan_mental_incapacidade_total = incapacidade_perm_tot,
-    
-    #sinan violencia
-    y_sinan_reincidencia   = OUT_VEZES_inter,
-    y_sinan_autoprovocada = LES_AUTOP_inter,
-    y_sinan_viol_fisica = VIOL_FISIC_inter,
-    y_sinan_viol_financeira = VIOL_FINAN_inter,
-    y_sinan_viol_psicologica = VIOL_PSICO_inter,
-    y_sinan_viol_tortura = VIOL_TORT_inter,
-    y_sinan_viol_sexual = VIOL_SEXU_inter,
-    y_sinan_viol_trafico_humano = VIOL_TRAF_inter,
-    y_sinan_viol_negligencia = VIOL_NEGLI_inter,
-    y_sinan_viol_trabalho_infantil = VIOL_INFAN_inter,
-    y_sinan_viol_intervencao_legal = VIOL_LEGAL_inter,
-    y_sinan_viol_outros = VIOL_OUTR_inter,
-    
-    #sinan meio de agressao
-    y_sinan_agressao_forca = AG_FORCA_inter,
-    y_sinan_agressao_enforcamento = AG_ENFOR_inter,
-    y_sinan_agressao_objeto_contudente = AG_OBJETO_inter,
-    y_sinan_agressao_corte = AG_CORTE_inter,
-    y_sinan_agressao_quente = AG_QUENTE_inter,
-    y_sinan_agressao_evenenamento = AG_ENVEN_inter,
-    y_sinan_agressao_fogo = AG_FOGO_inter,
-    y_sinan_agressao_ameaca = AG_AMEACA_inter,
-    y_sinan_agressao_outros = AG_OUTROS_inter,
-    
-    #sinan violencia sexual
-    y_sinan_sex_assedio = SEX_ASSEDI_inter,
-    y_sinan_sex_estupro = SEX_ESTUPR_inter,
-    y_sinan_sex_pudor = SEX_PUDOR_inter,
-    y_sinan_sex_pornografia_infantil = SEX_PORNO_inter,
-    y_sinan_sex_exploracao_sexual = SEX_EXPLO_inter,
-    y_sinan_sex_outro = SEX_OUTRO_inter,
-    
-    #sinan procedimento por tipo
-    y_sinan_procedimento_aborto = PROC_ABORT_inter,
-    y_sinan_procedimento_coleta_semen = PROC_SEMEN_inter,
-    y_sinan_procedimento_coleta_vaginal = PROC_VAGIN_inter,
-    y_sinan_procedimento_contracepcao_emerg = PROC_CONTR_inter,
-    
-    # ocorencias no momento da notificacao
-    y_sinan_notificacao_dst = CONS_DST_inter,
-    y_sinan_notificacao_suicidio = CONS_SUIC_inter,
-    y_sinan_notificacao_mental = CONS_MENT_inter,
-    y_sinan_notificacao_estresse_pos_tra = CONS_ESTRE_inter,
-    
-    #encaminhamento
-    y_sinan_enc_rede_saude = ENC_SAUDE_inter,
-    y_sinan_enc_abrigo = ENC_ABRIGO_inter,
-    y_sinan_enc_sentinela = ENC_SENTIN_inter,
-    y_sinan_enc_deam = ENC_DEAM_inter,
-    y_sinan_enc_dpca = ENC_DPCA_inter,
-    y_sinan_enc_delegacia_outra = ENC_DELEG_inter,
-    y_sinan_enc_mp = ENC_MPU_inter,
-    y_sinan_enc_mulher_abrigo = ENC_MULHER_inter,
-    y_sinan_enc_creas = ENC_CREAS_inter,
-    y_sinan_enc_iml = ENC_IML_inter) |> 
-  
-  mutate(
-    mandato = case_when(year %% 4 == 0 ~ year - 4,
-                        year %% 4 == 1 ~ year - 1,
-                        year %% 4 == 2 ~ year - 2,
-                        year %% 4 == 3 ~ year - 3),
-    cd_muni = as.character(cd_muni)) |> 
-  group_by(cd_muni, mandato) |> 
-  
-  summarise(across(
-    .cols = starts_with("y_"),       
-    .fns = ~ sum(.),  
-    .names = "{.col}")) |> 
-  
-  mutate(across(
-    .cols = starts_with("y_"),
-    .fns = ~ replace_na(., 0),
-    .names = "{.col}"))
 
+    # sinan violência
+    y_sinan_reincidencia = OUT_VEZES_masc + OUT_VEZES_fem,
+    y_sinan_autoprovocada = LES_AUTOP_masc + LES_AUTOP_fem,
+    y_sinan_viol_fisica = VIOL_FISIC_masc + VIOL_FISIC_fem,
+    y_sinan_viol_financeira = VIOL_FINAN_masc + VIOL_FINAN_fem,
+    y_sinan_viol_psicologica = VIOL_PSICO_masc + VIOL_PSICO_fem,
+    y_sinan_viol_tortura = VIOL_TORT_masc + VIOL_TORT_fem,
+    y_sinan_viol_sexual = VIOL_SEXU_masc + VIOL_SEXU_fem,
+    y_sinan_viol_trafico_humano = VIOL_TRAF_masc + VIOL_TRAF_fem,
+    y_sinan_viol_negligencia = VIOL_NEGLI_masc + VIOL_NEGLI_fem,
+    y_sinan_viol_trabalho_infantil = VIOL_INFAN_masc + VIOL_INFAN_fem,
+    y_sinan_viol_intervencao_legal = VIOL_LEGAL_masc + VIOL_LEGAL_fem,
+    y_sinan_viol_outros = VIOL_OUTR_masc + VIOL_OUTR_fem,
+
+    # sinan meio de agressão
+    y_sinan_agressao_forca = AG_FORCA_masc + AG_FORCA_fem,
+    y_sinan_agressao_enforcamento = AG_ENFOR_masc + AG_ENFOR_fem,
+    y_sinan_agressao_objeto_contudente = AG_OBJETO_masc + AG_OBJETO_fem,
+    y_sinan_agressao_corte = AG_CORTE_masc + AG_CORTE_fem,
+    y_sinan_agressao_quente = AG_QUENTE_masc + AG_QUENTE_fem,
+    y_sinan_agressao_evenenamento = AG_ENVEN_masc + AG_ENVEN_fem,
+    y_sinan_agressao_fogo = AG_FOGO_masc + AG_FOGO_fem,
+    y_sinan_agressao_ameaca = AG_AMEACA_masc + AG_AMEACA_fem,
+    y_sinan_agressao_outros = AG_OUTROS_masc + AG_OUTROS_fem,
+
+    # sinan violência sexual
+    y_sinan_sex_assedio = SEX_ASSEDI_masc + SEX_ASSEDI_fem,
+    y_sinan_sex_estupro = SEX_ESTUPR_masc + SEX_ESTUPR_fem,
+    y_sinan_sex_pudor = SEX_PUDOR_masc + SEX_PUDOR_fem,
+    y_sinan_sex_pornografia_infantil = SEX_PORNO_masc + SEX_PORNO_fem,
+    y_sinan_sex_exploracao_sexual = SEX_EXPLO_masc + SEX_EXPLO_fem,
+    y_sinan_sex_outro = SEX_OUTRO_masc + SEX_OUTRO_fem,
+
+    # sinan procedimento
+    y_sinan_procedimento_aborto = PROC_ABORT_masc + PROC_ABORT_fem,
+    y_sinan_procedimento_coleta_semen = PROC_SEMEN_masc + PROC_SEMEN_fem,
+    y_sinan_procedimento_coleta_vaginal = PROC_VAGIN_masc + PROC_VAGIN_fem,
+    y_sinan_procedimento_contracepcao_emerg = PROC_CONTR_masc + PROC_CONTR_fem,
+
+    # notificações
+    y_sinan_notificacao_dst = CONS_DST_masc + CONS_DST_fem,
+    y_sinan_notificacao_suicidio = CONS_SUIC_masc + CONS_SUIC_fem,
+    y_sinan_notificacao_mental = CONS_MENT_masc + CONS_MENT_fem,
+    y_sinan_notificacao_estresse_pos_tra = CONS_ESTRE_masc + CONS_ESTRE_fem,
+
+    # encaminhamentos
+    y_sinan_enc_rede_saude = ENC_SAUDE_masc + ENC_SAUDE_fem,
+    y_sinan_enc_abrigo = ENC_ABRIGO_masc + ENC_ABRIGO_fem,
+    y_sinan_enc_sentinela = ENC_SENTIN_masc + ENC_SENTIN_fem,
+    y_sinan_enc_deam = ENC_DEAM_masc + ENC_DEAM_fem,
+    y_sinan_enc_dpca = ENC_DPCA_masc + ENC_DPCA_fem,
+    y_sinan_enc_delegacia_outra = ENC_DELEG_masc + ENC_DELEG_fem,
+    y_sinan_enc_mp = ENC_MPU_masc + ENC_MPU_fem,
+    y_sinan_enc_mulher_abrigo = ENC_MULHER_masc + ENC_MULHER_fem,
+    y_sinan_enc_creas = ENC_CREAS_masc + ENC_CREAS_fem,
+    y_sinan_enc_iml = ENC_IML_masc + ENC_IML_fem
+  ) |> 
+
+  mutate(
+    mandato = case_when(
+      year %% 4 == 0 ~ year - 4,
+      year %% 4 == 1 ~ year - 1,
+      year %% 4 == 2 ~ year - 2,
+      year %% 4 == 3 ~ year - 3
+    ),
+    cd_muni = as.character(cd_muni)
+  ) |> 
+  group_by(cd_muni, mandato) |> 
+  summarise(across( .cols = starts_with("y_"), .fns = ~ sum(.), .names = "{.col}")) |> mutate(across( .cols = starts_with("y_"), .fns = ~ replace_na(., 0), .names = "{.col}"))
 
 ```
 
@@ -274,6 +326,7 @@ consolidado_sinan <- df_adriano_raw |>
 
 df_rdd_sinan <- df_candidates |>
   filter(!ano %in% c('2004')) |> 
+  #filter(ano==2020) |>
   left_join(consolidado_sinan, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni')) |> 
   
     mutate(across(
