@@ -1,0 +1,211 @@
+---
+title: "finbra"
+output: html_document
+date: "2025-10-26"
+---
+
+
+```{r}
+library(tidyverse)
+library(basedosdados)
+```
+
+
+```{r}
+
+set_billing_id("base-dos-dados-455418")
+
+query <- ("
+SELECT
+    dados.ano as ano,
+    dados.id_municipio as id_municipio,
+    dados.estagio as estagio,
+    dados.portaria as portaria,
+    dados.conta as conta,
+    dados.estagio_bd as estagio_bd,
+    dados.id_conta_bd as id_conta_bd,
+    dados.conta_bd as conta_bd,
+    dados.valor as valor
+FROM `basedosdados.br_me_siconfi.municipio_despesas_funcao` AS dados
+WHERE ano >= 2004")
+
+finbra_raw <- read_sql(query, billing_project_id = get_billing_id())
+
+```
+
+
+```{r}
+
+
+df_gastos <- finbra_raw |> 
+  filter(estagio_bd == 'Despesas Pagas') |> 
+  mutate(
+    y_gasto = case_when(
+      id_conta_bd == '3.06.000' ~ 'y_gasto_seguranca_publica',
+      id_conta_bd == '3.06.182' ~ 'y_gasto_defesa_civil',
+
+      id_conta_bd == '3.08.000' ~ 'y_gasto_assistencia_social',
+      id_conta_bd == '3.08.243' ~ 'y_gasto_assistencia_social_crianca_adolescente',
+      id_conta_bd == '3.08.244' ~ 'y_gasto_assistencia_comunitaria',
+
+      id_conta_bd == '3.10.000' ~ 'y_gasto_saude',
+      id_conta_bd == '3.10.301' ~ 'y_gasto_atencao_basica',
+      id_conta_bd == '3.10.302' ~ 'y_gasto_assistencia_hospitalar_ambulatorial',
+      id_conta_bd == '3.10.303' ~ 'y_gasto_suporte_profilatico_terapeutico',
+      id_conta_bd == '3.10.304' ~ 'y_gasto_vigilancia_sanitaria',
+      id_conta_bd == '3.10.305' ~ 'y_gasto_vigilancia_epidemiologica',
+
+      id_conta_bd == '3.11.000' ~ 'y_gasto_trabalho',
+      id_conta_bd == '3.11.333' ~ 'y_gasto_empregabilidade',
+
+      id_conta_bd == '3.12.000' ~ 'y_gasto_educacao',
+      id_conta_bd == '3.12.361' ~ 'y_gasto_ensino_fundamental',
+
+      id_conta_bd == '3.13.000' ~ 'y_gasto_cultura',
+      id_conta_bd == '3.13.392' ~ 'y_gasto_difusao_cultural',
+
+      id_conta_bd == '3.15.000' ~ 'y_gasto_urbanismo',
+      id_conta_bd == '3.15.451' ~ 'y_gasto_infraestrutura_urbana',
+      id_conta_bd == '3.15.452' ~ 'y_gasto_servicos_urbanos',
+
+      id_conta_bd == '3.18.000' ~ 'y_gasto_gestao_ambiental',
+      id_conta_bd == '3.18.542' ~ 'y_gasto_controle_ambiental',
+
+      id_conta_bd == '3.20.000' ~ 'y_gasto_agricultura',
+
+      id_conta_bd == '3.27.000' ~ 'y_gasto_desporto_lazer',
+      id_conta_bd == '3.27.812' ~ 'y_gasto_desporto_comunitario',
+
+      TRUE ~ NA_character_),
+    
+  mandato = case_when(ano %% 4 == 0 ~ ano - 4,
+                             ano %% 4 == 1 ~ ano - 1,
+                             ano %% 4 == 2 ~ ano - 2,
+                             ano %% 4 == 3 ~ ano - 3),
+    mandato = as.factor(mandato)) |> 
+  select(mandato, id_municipio, y_gasto, valor) |> 
+  filter(is.na(y_gasto) == F) |> 
+  group_by(mandato, id_municipio, y_gasto) |> 
+  summarise(valor = sum(valor, na.rm = TRUE)) |> 
+  ungroup() |> 
+  pivot_wider(names_from = y_gasto, values_from = valor, values_fill = 0)
+
+```
+
+
+```{r}
+df_candidates <- readRDS('../../dados/TSE/TSE_tratado_completo.RDS') |> 
+  mutate(ano = as.factor(ano),
+         cd_municipio_ibge_7 = as.character(cd_municipio_ibge_7))
+
+
+df_rdd_siconfi <- df_candidates |> 
+  left_join(df_gastos, by = c('ano' = 'mandato', 'cd_municipio_ibge_7' = 'id_municipio')) |> 
+  filter(ano %in% c('2012', '2016', '2020')) |> 
+  mutate(across(
+    .cols = starts_with("y_"),
+    .fns = ~ (./cov_municipio_pop_total),
+    .names = "{.col}"))
+
+
+```
+
+
+```{r}
+
+RDD <- function(df, x, y) {
+  library(rdrobust)
+  library(rlang)
+
+  # pega o nome da variável y em formato string
+  y_name <- as_label(enquo(y))
+
+  df <- df |>
+    filter(
+      !is.na({{x}}),
+      !is.na({{y}}),
+      !is.na(ano),
+      # !is.na(cov_reeleicao),
+      # !is.na(cov_candidato_partido),
+      # !is.na(cov_candidato_educacao_agrupada),
+      # !is.na(cov_candidato_idade),
+      # !is.na(cov_municipio_proporcao_mulheres_pop),
+      # !is.na(cov_municipio_pop_total),
+      # !is.na(cd_municipio_ibge_7)
+    )
+  
+    # se não tiver dados suficientes, pula
+  if (nrow(df) < 30 || length(unique(df |> pull({{y}}))) < 5) {
+    cat("\n====================\n")
+    cat("Variável:", y_name, "- não tem dados suficientes. Pulando.\n")
+    return(NULL)
+  }
+
+
+  controls <- model.matrix(
+    ~ ano 
+    # + cov_reeleicao
+    # + cov_candidato_partido
+    # + cov_candidato_educacao_agrupada
+    # + cov_candidato_idade
+    # + cov_municipio_proporcao_mulheres_pop
+    # + cov_municipio_pop_total
+    ,data = df)
+
+  x_vals <- df |> pull({{x}})
+  y_vals <- df |> pull({{y}})
+
+  regressao <- rdrobust(
+    x = x_vals,
+    y = y_vals,
+    covs = controls,
+    cluster = df$cd_municipio_ibge_7,
+    all = TRUE,
+    kernel = "triangular"
+  )
+
+  cat("\n====================\n")
+  cat("Resultado para variável:", y_name, "\n")
+  print(summary(regressao))
+
+  h <- regressao$bws[1]
+
+  dados_filtrados <- tibble(x = x_vals, y = y_vals) |>
+    filter(abs(x) <= h)
+
+  ymax <- mean(dados_filtrados$y)
+
+  rdplot(
+    y = y_vals,
+    x = x_vals,
+    kernel = "triangular",
+    x.lim = c(-h, h),
+    y.lim = c(0, ymax * 2),
+    nbins = 100,
+    p = 4,
+    title = paste("RDD Plot -", y_name),
+    y.label = y_name,
+    x.label = as_label(enquo(x))
+  )
+}
+
+```
+
+
+```{r}
+
+y_vars <- names(df_rdd_siconfi)[grepl("^y_", names(df_rdd_siconfi))]
+
+map(y_vars, ~ {RDD(df_rdd_siconfi, x = val_margem_vitoria_feminina, y = !!sym(.x))})
+
+
+```
+
+
+
+
+
+
+
+
+
