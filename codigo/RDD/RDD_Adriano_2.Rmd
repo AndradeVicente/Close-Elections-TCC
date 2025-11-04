@@ -33,16 +33,16 @@ RDD <- function(df, x, y) {
 
   df <- df |>
     filter(
-      !is.na({{x}}),
-      !is.na({{y}}),
-      !is.na(ano),
-      !is.na(cov_reeleicao),
-      !is.na(cov_candidato_partido),
-      !is.na(cov_candidato_educacao_agrupada),
-      !is.na(cov_candidato_idade),
-      !is.na(cov_municipio_proporcao_mulheres_pop),
-      !is.na(cov_municipio_pop_total),
-      !is.na(cd_municipio_ibge_7)
+      #!is.na({{x}}),
+      #!is.na({{y}}),
+      #!is.na(ano),
+      #!is.na(cov_reeleicao),
+      #!is.na(cov_candidato_partido),
+      #!is.na(cov_candidato_educacao_agrupada),
+      #!is.na(cov_candidato_idade),
+      #!is.na(cov_municipio_proporcao_mulheres_pop),
+      #!is.na(cov_municipio_pop_total),
+      #!is.na(cd_municipio_ibge_7)
     )
   
     # se não tiver dados suficientes, pula
@@ -53,15 +53,15 @@ RDD <- function(df, x, y) {
   }
 
 
-  controls <- model.matrix(
-    ~ ano 
-    + cov_reeleicao
-    + cov_candidato_partido
-    + cov_candidato_educacao_agrupada
-    + cov_candidato_idade
-    + cov_municipio_proporcao_mulheres_pop
-    + cov_municipio_pop_total
-    ,data = df)
+  #controls <- model.matrix(
+    #~ ano 
+    #+ cov_reeleicao
+    #+ cov_candidato_partido
+    #+ cov_candidato_educacao_agrupada
+    #+ cov_candidato_idade
+    #+ cov_municipio_proporcao_mulheres_pop
+    #+ cov_municipio_pop_total
+    #,data = df)
 
   x_vals <- df |> pull({{x}})
   y_vals <- df |> pull({{y}})
@@ -327,7 +327,7 @@ consolidado_sinan <- df_adriano_raw |>
 df_rdd_sinan <- df_candidates |>
   filter(!ano %in% c('2004')) |> 
   #filter(ano==2020) |>
-  left_join(consolidado_sinan, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni')) |> 
+  left_join(consolidado_sinan_fem, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni')) |> 
   
     mutate(across(
     .cols = starts_with("y_"),
@@ -449,7 +449,7 @@ consolidado_sia <- df_adriano_raw |>
 
 df_rdd_sia <- df_candidates |>
   filter(!ano %in% c('2004')) |> 
-  left_join(consolidado, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni')) |> 
+  left_join(consolidado_sia, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni')) |> 
   
     mutate(across(
     .cols = starts_with("y_"),
@@ -723,7 +723,8 @@ consolidado_cbo <- df_adriano_raw |>
 ```{r}
 
 df_rdd_cbo <- df_candidates |>
-  filter(!ano %in% c('2004')) |> 
+  #filter(!ano %in% c('2004')) |> 
+  filter(ano==2020) |> 
   left_join(consolidado_cbo, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni_ibge')) |> 
   
     mutate(across(
