@@ -22,7 +22,7 @@ df_adriano_raw |> view()
 df_candidates <- readRDS('../../dados/TSE_tratado_completo.RDS')
 ```
 
-## Função RDD
+## Função RDD principal
 ```{r}
 RDD <- function(df, x, y) {
   library(rdrobust)
@@ -33,16 +33,16 @@ RDD <- function(df, x, y) {
 
   df <- df |>
     filter(
-      #!is.na({{x}}),
-      #!is.na({{y}}),
-      #!is.na(ano),
-      #!is.na(cov_reeleicao),
-      #!is.na(cov_candidato_partido),
-      #!is.na(cov_candidato_educacao_agrupada),
-      #!is.na(cov_candidato_idade),
-      #!is.na(cov_municipio_proporcao_mulheres_pop),
-      #!is.na(cov_municipio_pop_total),
-      #!is.na(cd_municipio_ibge_7)
+      !is.na({{x}}),
+      !is.na({{y}}),
+      !is.na(ano),
+      !is.na(cov_reeleicao),
+      !is.na(cov_candidato_partido),
+      !is.na(cov_candidato_educacao_agrupada),
+      !is.na(cov_candidato_idade),
+      !is.na(cov_municipio_proporcao_mulheres_pop),
+      !is.na(cov_municipio_pop_total),
+      !is.na(cd_municipio_ibge_7)
     )
   
     # se não tiver dados suficientes, pula
@@ -53,15 +53,15 @@ RDD <- function(df, x, y) {
   }
 
 
-  #controls <- model.matrix(
-    #~ ano 
-    #+ cov_reeleicao
-    #+ cov_candidato_partido
-    #+ cov_candidato_educacao_agrupada
-    #+ cov_candidato_idade
-    #+ cov_municipio_proporcao_mulheres_pop
-    #+ cov_municipio_pop_total
-    #,data = df)
+  controls <- model.matrix(
+    ~ ano 
+    + cov_reeleicao
+    + cov_candidato_partido
+    + cov_candidato_educacao_agrupada
+    + cov_candidato_idade
+    + cov_municipio_proporcao_mulheres_pop
+    + cov_municipio_pop_total
+    ,data = df)
 
   x_vals <- df |> pull({{x}})
   y_vals <- df |> pull({{y}})
@@ -69,7 +69,7 @@ RDD <- function(df, x, y) {
   regressao <- rdrobust(
     x = x_vals,
     y = y_vals,
-    #covs = controls,
+    covs = controls,
     cluster = df$cd_municipio_ibge_7,
     all = TRUE,
     kernel = "triangular"
@@ -99,6 +99,82 @@ RDD <- function(df, x, y) {
     x.label = as_label(enquo(x))
   )
 }
+```
+
+#Função RDD evitando erro de filtrar apenas 2020 
+```{r}
+Rdd20 <- function(df, x, y) {
+  library(rdrobust)
+  library(rlang)
+
+  y_name <- as_label(enquo(y))
+
+  # Filtra valores inválidos (NA / Inf / NaN)
+  df <- df |>
+    filter(
+      is.finite({{x}}),
+      is.finite({{y}}),
+      !is.na({{x}}),
+      !is.na({{y}})
+    )
+
+  # Checagem mínima de dados após o filtro: garante q tem uma qnt de municípios aceitável próximo ao cutoff e que y tem uma variabilidade- se y é praticamente constante, é impossível captar diferença> RDD dá erro
+  if (nrow(df) < 30 || length(unique(df |> pull({{y}}))) < 5) {
+    cat("\n====================\n")
+    cat("Variável:", y_name, "- não tem dados suficientes. Pulando.\n")
+    return(NULL)
+  }
+
+  x_vals <- df |> pull({{x}})
+  y_vals <- df |> pull({{y}})
+
+  # Captura erros do rdrobust sem parar o map()
+  regressao <- tryCatch(
+    rdrobust(
+      x = x_vals,
+      y = y_vals,
+      cluster = df$cd_municipio_ibge_7,
+      all = TRUE,
+      kernel = "triangular"
+    ),
+    error = function(e) {
+      cat("\n====================\n")
+      cat("Erro no rdrobust para variável:", y_name, "\n")
+      cat("Mensagem do erro:", e$message, "\n")
+      return(NULL)
+    }
+  )
+
+  if (is.null(regressao)) return(NULL)
+
+  cat("\n====================\n")
+  cat("Resultado para variável:", y_name, "\n")
+  print(summary(regressao))
+
+  # Bandwidth h
+  h <- regressao$bws[1]
+
+  dados_filtrados <- tibble(x = x_vals, y = y_vals) |>
+    filter(abs(x) <= h)
+
+  ymax <- mean(dados_filtrados$y)
+
+  # Plot
+  rdplot(
+    y = y_vals,
+    x = x_vals,
+    kernel = "triangular",
+    x.lim = c(-h, h),
+    y.lim = c(0, ymax * 2),
+    nbins = 100,
+    p = 4,
+    title = paste("RDD Plot -", y_name),
+    y.label = y_name,
+    x.label = as_label(enquo(x))
+  )
+}
+
+
 ```
 
 
@@ -325,8 +401,8 @@ consolidado_sinan <- df_adriano_raw |>
 ```{r}
 
 df_rdd_sinan <- df_candidates |>
-  filter(!ano %in% c('2004')) |> 
-  #filter(ano==2020) |>
+  #filter(!ano %in% c('2004')) |> 
+  filter(ano==2020) |>
   left_join(consolidado_sinan_fem, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni')) |> 
   
     mutate(across(
@@ -341,12 +417,16 @@ df_rdd_sinan <- df_candidates |>
 
 ```
 
+
 RDD sinan
 ```{r}
 
 y_vars <- names(df_rdd_sinan)[grepl("^y_", names(df_rdd_sinan))]
 
-map(y_vars, ~ {RDD(df_rdd_sinan, x = val_margem_vitoria_feminina, y = !!sym(.x))})
+#map(y_vars, ~ {RDD(df_rdd_sinan, x = val_margem_vitoria_feminina, y = !!sym(.x))})
+
+#####rdd 2020
+map(y_vars, ~ {Rdd20(df_rdd_sinan, x = val_margem_vitoria_feminina, y = !!sym(.x))})
 
 ```
 
@@ -448,7 +528,8 @@ consolidado_sia <- df_adriano_raw |>
 ```{r}
 
 df_rdd_sia <- df_candidates |>
-  filter(!ano %in% c('2004')) |> 
+  #filter(!ano %in% c('2004')) |> 
+  filter(ano==2020) |>
   left_join(consolidado_sia, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni')) |> 
   
     mutate(across(
@@ -467,8 +548,10 @@ df_rdd_sia <- df_candidates |>
 
 y_vars <- names(df_rdd_sia)[grepl("^y_", names(df_rdd_sia))]
 
-map(y_vars, ~ {RDD(df_rdd_sia, x = val_margem_vitoria_feminina, y = !!sym(.x))})
+#map(y_vars, ~ {RDD(df_rdd_sia, x = val_margem_vitoria_feminina, y = !!sym(.x))})
 
+#####rdd 2020
+map(y_vars, ~ {Rdd20(df_rdd_sia, x = val_margem_vitoria_feminina, y = !!sym(.x))})
 
 ```
 
@@ -626,7 +709,8 @@ consolidado_sih <- df_adriano_raw |>
 ```{r}
 
 df_rdd_sih <- df_candidates |>
-  filter(!ano %in% c('2004')) |> 
+  #filter(!ano %in% c('2004')) |> 
+  filter(ano==2020) |>
   left_join(consolidado_sih, by = c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni')) |> 
   
     mutate(across(
@@ -647,6 +731,8 @@ y_vars <- names(df_rdd_sih)[grepl("^y_", names(df_rdd_sih))]
 
 map(y_vars, ~ {RDD(df_rdd_sih, x = val_margem_vitoria_feminina, y = !!sym(.x))})
 
+#####rdd 2020
+#map(y_vars, ~ {Rdd20(df_rdd_sih, x = val_margem_vitoria_feminina, y = !!sym(.x))})
 
 ```
 
@@ -743,6 +829,202 @@ df_rdd_cbo <- df_candidates |>
 
 y_vars <- names(df_rdd_cbo)[grepl("^y_", names(df_rdd_cbo))]
 
-map(y_vars, ~ {RDD(df_rdd_cbo, x = val_margem_vitoria_feminina, y = !!sym(.x))})
+#map(y_vars, ~ {RDD(df_rdd_cbo, x = val_margem_vitoria_feminina, y = !!sym(.x))})
+
+#####rdd 2020
+map(y_vars, ~ {Rdd20(df_rdd_cbo, x = val_margem_vitoria_feminina, y = !!sym(.x))})
 
 ```
+
+#Teste robustez simsus- exatamente igual codigo original
+```{r}
+
+controls <- model.matrix(~ ano + partido + idade + educacao_agr + prop_fem_pop + pop_total, data = df_prefeitos_simsus)
+
+bandwidths <- seq(0.05, 1, by = 0.05)
+
+betas <- numeric(length(bandwidths))
+pvalues <- numeric(length(bandwidths))
+
+for (i in seq_along(bandwidths)) {
+  
+  h <- bandwidths[i]
+  
+  rd_robust_result <- rdrobust(x = df_prefeitos_simsus$mg_fem,
+         y = df_prefeitos_simsus$y_domestic_homicide,
+         covs = controls, 
+         cluster = df_prefeitos_simsus$codigo_ibge, 
+         h = h,
+         all = TRUE, 
+         kernel = "triangular") 
+  
+  betas[i] <- rd_robust_result$coef[1]
+  pvalues[i] <- rd_robust_result$pv[1]
+
+}    
+
+
+results <- data.frame(
+  bandwidth = bandwidths,
+  beta = betas,
+  pvalue = pvalues)
+
+results |> 
+  pivot_longer(beta:pvalue) |> 
+  ggplot(aes(x=bandwidth, y = value)) + 
+  geom_line() + 
+  facet_grid(rows = vars(name), scales = "free_y") 
+```
+
+```{r}
+# Escolha uma variável do SINAN (exemplo)
+y_var_escolhida <- "y_sinan_mental_encaminhamento_caps"
+
+
+# Monta matriz de controles (mesma lógica do seu exemplo)
+controls <- model.matrix(
+  ~ ano + cov_reeleicao + cov_candidato_partido + cov_candidato_educacao_agrupada +
+    cov_candidato_idade + cov_municipio_proporcao_mulheres_pop + cov_municipio_pop_total,
+  data = df_rdd_sinan
+)
+
+
+# sequência de bandwidths (mesmo padrão do seu teste)
+bandwidths <- seq(0.05, 1, by = 0.05)
+
+betas <- numeric(length(bandwidths))
+pvalues <- numeric(length(bandwidths))
+
+
+for (i in seq_along(bandwidths)) {
+
+  h <- bandwidths[i]
+
+  rd_robust_result <- tryCatch(
+    rdrobust(
+      x = df_rdd_sinan$val_margem_vitoria_feminina,
+      y = df_rdd_sinan[[y_var_escolhida]],
+      covs = controls,
+      cluster = df_rdd_sinan$cd_municipio_ibge_7,
+      h = h,
+      all = TRUE,
+      kernel = "triangular"
+    ),
+    error = function(e) return(NULL)
+  )
+
+  if (!is.null(rd_robust_result)) {
+    betas[i] <- rd_robust_result$coef[1]
+    pvalues[i] <- rd_robust_result$pv[1]
+  } else {
+    betas[i] <- NA
+    pvalues[i] <- NA
+  }
+
+}
+
+
+results <- data.frame(
+  bandwidth = bandwidths,
+  beta = betas,
+  pvalue = pvalues
+)
+
+
+results |>
+  pivot_longer(beta:pvalue) |> 
+  ggplot(aes(x = bandwidth, y = value)) + 
+  geom_line() + 
+  facet_grid(rows = vars(name), scales = "free_y") +
+  labs(
+    title = paste("Robustez RDD –", y_var_escolhida),
+    x = "Bandwidth (h)",
+    y = "Valor"
+  )
+
+```
+
+
+#Teste de robustez atual
+```{r}
+library(rdrobust)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# matriz de controles (mesmo padrão do seu exemplo)
+controls <- model.matrix(
+  ~ ano + cov_reeleicao + cov_candidato_partido + cov_candidato_educacao_agrupada +
+    cov_candidato_idade + cov_municipio_proporcao_mulheres_pop + cov_municipio_pop_total,
+  data = df_rdd_sinan
+)
+
+# sequência de bandwidths (igual ao seu teste)
+bandwidths <- seq(0.05, 1, by = 0.05)
+
+# lista para acumular resultados
+lista_resultados <- list()
+contador <- 1
+
+for (var in y_vars) {
+
+  message("Rodando teste de robustez para variável: ", var)
+
+  betas   <- numeric(length(bandwidths))
+  pvalues <- numeric(length(bandwidths))
+
+  for (i in seq_along(bandwidths)) {
+
+    h <- bandwidths[i]
+
+    rd_robust_result <- tryCatch(
+      rdrobust(
+        x = df_rdd_sinan$val_margem_vitoria_feminina,
+        y = df_rdd_sinan[[var]],
+        covs = controls,
+        cluster = df_rdd_sinan$cd_municipio_ibge_7,
+        h = h,
+        all = TRUE,
+        kernel = "triangular"
+      ),
+      error = function(e) return(NULL)
+    )
+
+    if (!is.null(rd_robust_result)) {
+      betas[i]   <- rd_robust_result$coef[1]
+      pvalues[i] <- rd_robust_result$pv[1]
+    } else {
+      betas[i]   <- NA
+      pvalues[i] <- NA
+    }
+
+  }
+
+  lista_resultados[[contador]] <- tibble(
+    y_var    = var,
+    bandwidth = bandwidths,
+    beta      = betas,
+    pvalue    = pvalues
+  )
+
+  contador <- contador + 1
+}
+
+# consolida tudo em um único dataset
+resultados_robustez <- bind_rows(lista_resultados)
+
+resultados_robustez |>
+  pivot_longer(beta:pvalue) |>
+  ggplot(aes(x = bandwidth, y = value)) +
+  geom_line() +
+  facet_grid(rows = vars(name), cols = vars(y_var), scales = "free_y") +
+  theme_minimal() +
+  labs(
+    title = "Teste de Robustez – SINAN (RDD)",
+    subtitle = "Coeficiente e p-value variando o bandwidth",
+    x = "Bandwidth (h)",
+    y = "Valor"
+  )
+
+```
+
