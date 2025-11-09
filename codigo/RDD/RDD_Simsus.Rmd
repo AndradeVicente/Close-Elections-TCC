@@ -13,7 +13,12 @@ library(tidyverse)
 ```{r}
 df_candidates <- readRDS('../../dados/TSE/TSE_tratado_completo.RDS')
 df_datasus <- readRDS('../../dados/Datasus/SIMSUS/var_dependentes_simsus.RDS')
+
+## Duda
+df_candidates <- readRDS('../../dados/TSE_tratado_completo.RDS')
+df_datasus <- readRDS('../../dados/Bases/var_dependentes_simsus.RDS')
 ```
+
 
 ```{r}
 
@@ -55,6 +60,41 @@ df_simsus_dependentes <- df_datasus |>
   
 
 ```
+## Com variável death of despair- Duda
+```{r}
+df_simsus_dependentes <- df_datasus |> 
+  filter(idade >= 15 & idade <= 49, cd_sexo == 2) |> 
+
+  group_by(mandato, cd_muni_res) |>
+  summarise(
+    across(
+      .cols = starts_with("y_"),
+      .fns  = ~ sum(.),
+      .names = "{.col}"
+    ),
+    .groups = "drop"
+  ) |> 
+
+  arrange(cd_muni_res, mandato) |> 
+  group_by(cd_muni_res) |> 
+
+  mutate(
+    across(
+      .cols = starts_with("y_"),
+      .fns  = ~ lag(.),
+      .names = "{.col}_previous"
+    ),
+    
+    # nova variável SOMA do mandato atual
+    y_death_despair = y_suicide + y_overdose + y_alcoholic_disease,
+
+    # nova variável SOMA do mandato anterior
+    y_death_despair_previous = y_suicide_previous + y_overdose_previous + y_alcoholic_disease_previous
+  ) |> 
+
+  ungroup()
+
+```
 
 ```{r}
 df_rdd_simsus <- df_candidates |> 
@@ -63,7 +103,7 @@ df_rdd_simsus <- df_candidates |>
     across(starts_with('y_'), ~ (./cov_municipio_pop_total)*100000),
     across(starts_with('y_'), ~ replace_na(., 0)),
   ) |> 
-  filter(!ano %in% c(2004, 2020))
+  filter(!ano %in% c(2004))
   
 
 
@@ -83,8 +123,8 @@ RDD <- function(df, x, y) {
       !is.na(ano),
       !is.na(cov_reeleicao),
       !is.na(cov_candidato_partido),
-      !is.na(cov_candidato_patrimonio),
-      !is.na(cov_candidato_despesa_campanha_rs),
+      #!is.na(cov_candidato_patrimonio),
+      #!is.na(cov_candidato_despesa_campanha_rs),
       !is.na(cov_candidato_educacao_agrupada),
       !is.na(cov_candidato_idade),
       !is.na(cov_municipio_proporcao_mulheres_pop),
@@ -94,8 +134,14 @@ RDD <- function(df, x, y) {
 
   controls <- model.matrix(
     ~ ano 
-    + cov_reeleicao + cov_candidato_partido + cov_candidato_patrimonio + cov_candidato_despesa_campanha_rs + cov_candidato_educacao_agrupada + cov_candidato_idade
-     + cov_municipio_proporcao_mulheres_pop + cov_municipio_pop_total
+    + cov_reeleicao
+    + cov_candidato_partido
+    #+ cov_candidato_patrimonio
+    #+ cov_candidato_despesa_campanha_rs
+    + cov_candidato_educacao_agrupada
+    + cov_candidato_idade
+    + cov_municipio_proporcao_mulheres_pop
+    + cov_municipio_pop_total
     , data = df)
 
   x_vals <- df |> pull({{x}})
@@ -132,6 +178,90 @@ RDD <- function(df, x, y) {
 
 ```
 
+##Função rdd pra dados na
+```{r}
+RDDT <- function(df, x, y) {
+
+  library(rdrobust)
+  
+    # pega o nome da variável y em formato string
+  y_name <- as_label(enquo(y))
+  cat("\n====================\n")
+  cat("Resultado para variável:", y_name, "\n")
+
+  df <- df |>
+    filter(
+      !is.na({{x}}),
+      !is.na({{y}}),
+      !is.na(ano),
+      !is.na(cov_reeleicao),
+      !is.na(cov_candidato_partido),
+      # !is.na(cov_candidato_patrimonio),
+      # !is.na(cov_candidato_despesa_campanha_rs),
+      !is.na(cov_candidato_educacao_agrupada),
+      !is.na(cov_candidato_idade),
+      !is.na(cov_municipio_proporcao_mulheres_pop),
+      !is.na(cov_municipio_pop_total),
+      # !is.na(cov_pib_pc),
+      !is.na(cd_municipio_ibge_7)
+    )
+
+  num_eventos <- df |> summarise(total = sum({{y}}, na.rm = TRUE)) |> pull(total)
+
+  if (num_eventos < 50) {
+    message(glue::glue("Só {num_eventos} eventos. Pulando variável."))
+    return(NULL)
+  }
+  
+  
+  controls <- model.matrix(
+    ~ ano 
+    + cov_reeleicao 
+    + cov_candidato_partido 
+    #+ cov_candidato_patrimonio 
+    #+ cov_candidato_despesa_campanha_rs 
+    + cov_candidato_educacao_agrupada 
+    + cov_candidato_idade
+    + cov_municipio_proporcao_mulheres_pop 
+    + cov_municipio_pop_total 
+    #+ cov_pib_pc
+    , data = df)
+
+  x_vals <- df |> pull({{x}})
+  y_vals <- df |> pull({{y}})
+
+  regressao <- rdrobust(
+    x = x_vals,
+    y = y_vals,
+    covs = controls,
+    cluster = df$cd_municipio_ibge_7,
+    all = TRUE,
+    kernel = "triangular"
+  )
+
+  print(summary(regressao))
+
+  h <- regressao$bws[1]
+
+  dados_filtrados <- tibble(x = x_vals, y = y_vals) |>
+    filter(abs(x) <= h)
+
+  ymax <- mean(dados_filtrados$y)
+
+  rdplot(
+    y = y_vals,
+    x = x_vals,
+    kernel = "triangular",
+    x.lim = c(-h, h),
+    y.lim = c(0, ymax * 2),
+    title = paste("RDD Plot -", y_name),
+    nbins = 100,
+    p = 1
+  )
+}
+
+```
+
 # homicidio de mulheres - 15 ~ 49 - ambiente doméstico
 ```{r}
 
@@ -147,9 +277,82 @@ df_rdd_simsus |> RDD(val_margem_vitoria_feminina, y_suicide)
 
 ```
 
+## RDD simsus-Duda
+```{r}
+
+y_vars <- names(df_rdd_simsus)[grepl("^y_", names(df_rdd_simsus))]
+
+map(y_vars, ~ {RDDT(df_rdd_simsus, x = val_margem_vitoria_feminina, y = !!sym(.x))})
+
+#####rdd 2020
+#map(y_vars, ~ {Rdd20(df_rdd_sinan, x = val_margem_vitoria_feminina, y = !!sym(.x))})
+
+```
 
 
 
+##testanto robustez
+```{r}
+## Escolha a variável de interesse (qualquer variável começando com y_)
+y_var <- "y_death_despair"   # <-- troque aqui se quiser testar outra
+
+df_temp <- df_rdd_simsus |> 
+  filter(!is.na(val_margem_vitoria_feminina),
+         !is.na(.data[[y_var]]))
+
+# matriz de controles (mesmos do seu RDD)
+controls <- model.matrix(
+  ~ ano 
+  + cov_reeleicao
+  + cov_candidato_partido
+  + cov_candidato_educacao_agrupada
+  + cov_candidato_idade
+  + cov_municipio_proporcao_mulheres_pop
+  + cov_municipio_pop_total,
+  data = df_temp
+)
+
+bandwidths <- seq(0.05, 1, by = 0.05)
+
+betas <- numeric(length(bandwidths))
+pvalues <- numeric(length(bandwidths))
+
+for (i in seq_along(bandwidths)) {
+
+  h <- bandwidths[i]
+
+  rd_robust_result <- rdrobust(
+    x = df_temp$val_margem_vitoria_feminina,
+    y = df_temp[[y_var]],
+    covs = controls,
+    cluster = df_temp$cd_municipio_ibge_7,
+    h = h,
+    all = TRUE,
+    kernel = "triangular"
+  )
+
+  betas[i]   <- rd_robust_result$coef[1]
+  pvalues[i] <- rd_robust_result$pv[1]
+}
+
+results <- tibble(
+  bandwidth = bandwidths,
+  beta = betas,
+  pvalue = pvalues
+)
+
+results |> 
+  pivot_longer(beta:pvalue) |> 
+  ggplot(aes(x = bandwidth, y = value)) +
+  geom_line() +
+  facet_grid(rows = vars(name), scales = "free_y") +
+  labs(
+    title = paste("Robustez RDD para", y_var),
+    x = "Bandwidth (janela em torno do cutoff)",
+    y = "Valor"
+  )
+
+```
 
 
 
