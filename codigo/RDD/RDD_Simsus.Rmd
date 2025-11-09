@@ -282,81 +282,111 @@ df_rdd_simsus |> RDD(val_margem_vitoria_feminina, y_suicide)
 
 y_vars <- names(df_rdd_simsus)[grepl("^y_", names(df_rdd_simsus))]
 
-map(y_vars, ~ {RDDT(df_rdd_simsus, x = val_margem_vitoria_feminina, y = !!sym(.x))})
+map(y_vars, ~ {RDD(df_rdd_simsus, x = val_margem_vitoria_feminina, y = !!sym(.x))})
 
 #####rdd 2020
 #map(y_vars, ~ {Rdd20(df_rdd_sinan, x = val_margem_vitoria_feminina, y = !!sym(.x))})
 
 ```
 
+ 
 
 
-##testanto robustez
 ```{r}
-## Escolha a variável de interesse (qualquer variável começando com y_)
-y_var <- "y_death_despair"   # <-- troque aqui se quiser testar outra
 
-df_temp <- df_rdd_simsus |> 
-  filter(!is.na(val_margem_vitoria_feminina),
-         !is.na(.data[[y_var]]))
+library(tidyverse)
+library(rdrobust)
+library(rlang)
+library(glue)
+library(patchwork)
 
-# matriz de controles (mesmos do seu RDD)
-controls <- model.matrix(
-  ~ ano 
-  + cov_reeleicao
-  + cov_candidato_partido
-  + cov_candidato_educacao_agrupada
-  + cov_candidato_idade
-  + cov_municipio_proporcao_mulheres_pop
-  + cov_municipio_pop_total,
-  data = df_temp
-)
 
-bandwidths <- seq(0.05, 1, by = 0.05)
 
-betas <- numeric(length(bandwidths))
-pvalues <- numeric(length(bandwidths))
+RDD_sensibilidade <- function(df, x, y) {
 
-for (i in seq_along(bandwidths)) {
+  x <- enquo(x)
+  y <- enquo(y)
+  y_name <- as_label(y)
 
-  h <- bandwidths[i]
+  cat("\n====================\n")
+  cat("Variável dependente:", y_name, "\n")
 
-  rd_robust_result <- rdrobust(
-    x = df_temp$val_margem_vitoria_feminina,
-    y = df_temp[[y_var]],
+  df <- df |>
+    filter(!is.na(!!x), !is.na(!!y), !is.na(ano), !is.na(cd_municipio_ibge_7))
+
+  num_eventos <- df |> summarise(total = sum(!!y, na.rm = TRUE)) |> pull()
+  if (num_eventos < 50) {
+    message(glue("Só {num_eventos} eventos. Pulando variável: {y_name}"))
+    return(NULL)
+  }
+
+  controls <- model.matrix(~ ano, data = df)
+
+  x_vals <- df |> pull(!!x)
+  y_vals <- df |> pull(!!y)
+
+  # Roda com bandwidth ótimo
+  rd_opt <- rdrobust(
+    x = x_vals,
+    y = y_vals,
     covs = controls,
-    cluster = df_temp$cd_municipio_ibge_7,
-    h = h,
+    cluster = df$cd_municipio_ibge_7,
     all = TRUE,
     kernel = "triangular"
   )
+  print(summary(rd_opt))
 
-  betas[i]   <- rd_robust_result$coef[1]
-  pvalues[i] <- rd_robust_result$pv[1]
-}
+  # Sensibilidade
+  bandwidths <- seq(0.05, 1, by = 0.05)
+  betas <- numeric(length(bandwidths))
+  pvalues <- numeric(length(bandwidths))
 
-results <- tibble(
-  bandwidth = bandwidths,
-  beta = betas,
-  pvalue = pvalues
-)
+  for (i in seq_along(bandwidths)) {
+    res <- rdrobust(
+      x = x_vals, y = y_vals,
+      covs = controls,
+      cluster = df$cd_municipio_ibge_7,
+      h = bandwidths[i],
+      all = TRUE,
+      kernel = "triangular"
+    )
+    betas[i] <- res$coef[1]
+    pvalues[i] <- res$pv[1]
+  }
 
-results |> 
-  pivot_longer(beta:pvalue) |> 
-  ggplot(aes(x = bandwidth, y = value)) +
-  geom_line() +
-  facet_grid(rows = vars(name), scales = "free_y") +
-  labs(
-    title = paste("Robustez RDD para", y_var),
-    x = "Bandwidth (janela em torno do cutoff)",
-    y = "Valor"
+  results <- tibble(
+    bandwidth = bandwidths,
+    beta = betas,
+    pvalue = pvalues
   )
 
+  g1 <- results |>
+    ggplot(aes(bandwidth, beta)) +
+    geom_line() + geom_point() +
+    labs(title = paste("Coef vs bandwidth -", y_name), y = "coef.")
+
+  g2 <- results |>
+    ggplot(aes(bandwidth, pvalue)) +
+    geom_line() + geom_point() +
+    labs(title = paste("p-value vs bandwidth -", y_name), y = "p-value")
+
+  g1 / g2
+}
 ```
 
+```{r}
+y_vars <- names(df_rdd_simsus)[grepl("^y_", names(df_rdd_simsus))]
 
+map(
+  y_vars,
+  ~ RDD_sensibilidade(
+      df = df_rdd_simsus,
+      x = val_margem_vitoria_feminina,
+      y = !!sym(.x)
+    )
+)
 
-
+```
 
 
 
