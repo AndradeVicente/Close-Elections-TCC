@@ -77,9 +77,9 @@ portaria    conta   id_conta_bd   conta_bd
 13	Cultura	3.13.000	Cultura	
 13.392	Difusão Cultural	3.13.392	Difusão Cultural	
 15	Urbanismo	3.15.000	Urbanismo	
-15.451	Infraestrutura Urbana	3.15.451	Infraestrutura Urbana	
+15.451	Infraestrutura Urbana	3.15.451	Infraestrutura Urbana	- 
 15.452	Serviços Urbanos	3.15.452	Serviços Urbanos	
-18	Gestão Ambiental	3.18.000	Gestão Ambiental
+18	Gestão Ambiental	3.18.000	Gestão Ambiental - s
 
 18.542	Controle Ambiental	3.18.542	Controle Ambiental	
 20	Agricultura	3.20.000	Agricultura	
