@@ -107,8 +107,8 @@ RDD <- function(df, x, y) {
       !is.na({{x}}),
       !is.na({{y}}),
       !is.na(ano),
-      !is.na(cov_candidato_patrimonio),
-      !is.na(cov_candidato_despesa_campanha_rs),
+      # !is.na(cov_candidato_patrimonio),
+      # !is.na(cov_candidato_despesa_campanha_rs),
       !is.na(cov_reeleicao),
       !is.na(cov_candidato_partido),
       !is.na(cov_candidato_educacao_agrupada),
@@ -134,8 +134,8 @@ RDD <- function(df, x, y) {
     + cov_candidato_idade
     + cov_municipio_proporcao_mulheres_pop
     + cov_municipio_pop_total
-    + cov_candidato_patrimonio
-    + cov_candidato_despesa_campanha_rs
+    # + cov_candidato_patrimonio
+    # + cov_candidato_despesa_campanha_rs
     ,data = df)
 
   x_vals <- df |> pull({{x}})
@@ -177,6 +177,160 @@ RDD <- function(df, x, y) {
 
 ```
 
+rdd teste com filtro
+```{r}
+RDDt <- function(df, x, y) {
+
+  library(rdrobust)
+  
+    # pega o nome da variável y em formato string
+  y_name <- as_label(enquo(y))
+  cat("\n====================\n")
+  cat("Resultado para variável:", y_name, "\n")
+
+  df <- df |>
+    filter(
+      !is.na({{x}}),
+      !is.na({{y}}),
+      !is.na(ano),
+      !is.na(cov_reeleicao),
+      !is.na(cov_candidato_partido),
+      # !is.na(cov_candidato_patrimonio),
+      # !is.na(cov_candidato_despesa_campanha_rs),
+      !is.na(cov_candidato_educacao_agrupada),
+      !is.na(cov_candidato_idade),
+      !is.na(cov_municipio_proporcao_mulheres_pop),
+      !is.na(cov_municipio_pop_total),
+      # !is.na(cov_pib_pc),
+      !is.na(cd_municipio_ibge_7)
+    )
+
+  num_eventos <- df |> summarise(total = sum({{y}}, na.rm = TRUE)) |> pull(total)
+
+  if (num_eventos < 50) {
+    message(glue::glue("Só {num_eventos} eventos. Pulando variável."))
+    return(NULL)
+  }
+  
+  
+  controls <- model.matrix(
+    ~ ano 
+    + cov_reeleicao 
+    + cov_candidato_partido 
+    #+ cov_candidato_patrimonio 
+    #+ cov_candidato_despesa_campanha_rs 
+    + cov_candidato_educacao_agrupada 
+    + cov_candidato_idade
+    + cov_municipio_proporcao_mulheres_pop 
+    + cov_municipio_pop_total 
+    #+ cov_pib_pc
+    , data = df)
+
+  x_vals <- df |> pull({{x}})
+  y_vals <- df |> pull({{y}})
+
+  regressao <- rdrobust(
+    x = x_vals,
+    y = y_vals,
+    covs = controls,
+    cluster = df$cd_municipio_ibge_7,
+    all = TRUE,
+    kernel = "triangular"
+  )
+
+  print(summary(regressao))
+
+  h <- regressao$bws[1]
+
+  dados_filtrados <- tibble(x = x_vals, y = y_vals) |>
+    filter(abs(x) <= h)
+
+  ymax <- mean(dados_filtrados$y)
+
+  rdplot(
+    y = y_vals,
+    x = x_vals,
+    kernel = "triangular",
+    x.lim = c(-h, h),
+    y.lim = c(0, ymax * 2),
+    title = paste("RDD Plot -", y_name),
+    nbins = 100,
+    p = 1
+  )
+}
+```
+
+rdd original sem filtro
+```{r}
+
+
+RDDo <- function(df, x, y) {
+
+  library(rdrobust)
+  
+  df <- df |>
+    filter(
+      !is.na({{x}}),
+      !is.na({{y}}),
+      !is.na(ano),
+      !is.na(cov_reeleicao),
+      !is.na(cov_candidato_partido),
+      # !is.na(cov_candidato_patrimonio),
+      # !is.na(cov_candidato_despesa_campanha_rs),
+      !is.na(cov_candidato_educacao_agrupada),
+      !is.na(cov_candidato_idade),
+      !is.na(cov_municipio_proporcao_mulheres_pop),
+      !is.na(cov_municipio_pop_total),
+      !is.na(cd_municipio_ibge_7)
+    )
+
+  controls <- model.matrix(
+    ~ ano 
+    + cov_reeleicao 
+    + cov_candidato_partido 
+    # + cov_candidato_patrimonio 
+    # + cov_candidato_despesa_campanha_rs 
+    + cov_candidato_educacao_agrupada 
+    + cov_candidato_idade
+    + cov_municipio_proporcao_mulheres_pop 
+    + cov_municipio_pop_total
+    ,data = df)
+
+  x_vals <- df |> pull({{x}})
+  y_vals <- df |> pull({{y}})
+
+  regressao <- rdrobust(
+    x = x_vals,
+    y = y_vals,
+    covs = controls,
+    cluster = df$cd_municipio_ibge_7,
+    all = TRUE,
+    kernel = "triangular"
+  )
+
+  print(summary(regressao))
+
+  h <- regressao$bws[1]
+
+  dados_filtrados <- tibble(x = x_vals, y = y_vals) |>
+    filter(abs(x) <= h)
+
+  ymax <- mean(dados_filtrados$y)
+
+  rdplot(
+    y = y_vals,
+    x = x_vals,
+    kernel = "triangular",
+    x.lim = c(-h, h),
+    y.lim = c(0, ymax * 2),
+    nbins = 100,
+    p = 1
+  )
+}
+
+```
+
+
 #RDD
 ```{r}
 
@@ -187,10 +341,24 @@ map(y_vars, ~ {RDD(df_rdd_adriano, x = val_margem_vitoria_feminina, y = !!sym(.x
 
 ```
 
+```{r}
+y_vars <- names(df_rdd_adriano)[grepl("^y_", names(df_rdd_adriano))]
+
+map(y_vars, ~ {RDDo(df_rdd_adriano, x = val_margem_vitoria_feminina, y = !!sym(.x))})
+```
 
 ```{r}
-df_rdd_adriano |> 
-  RDD(val_margem_vitoria_feminina, y_unidades_caps)
+
+RDD(df_rdd_adriano, x = val_margem_vitoria_feminina, y = y_acsimplantado)
+
+rdplot(
+  y = df_rdd_adriano$y_acsimplantado,
+  x = df_rdd_adriano$val_margem_vitoria_feminina,
+  kernel = "triangular",
+  x.lim = c(-0.141, 0.141),
+  y.lim = c(0.03, 0.4),
+  nbins = 100,
+  p = 1)
 
 ```
 

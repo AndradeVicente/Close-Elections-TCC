@@ -44,7 +44,7 @@ RDD <- function(df, x, y) {
       # !is.na(cov_candidato_despesa_campanha_rs),
       !is.na(cov_candidato_educacao_agrupada),
       !is.na(cov_candidato_idade),
-      !is.na(cov_municipio_proporcao_mulheres_pop),
+      #!is.na(cov_municipio_proporcao_mulheres_pop),
       !is.na(cov_municipio_pop_total),
       # !is.na(cov_pib_pc),
       !is.na(cd_municipio_ibge_7)
@@ -66,7 +66,7 @@ RDD <- function(df, x, y) {
     #+ cov_candidato_despesa_campanha_rs 
     + cov_candidato_educacao_agrupada 
     + cov_candidato_idade
-    + cov_municipio_proporcao_mulheres_pop 
+    #+ cov_municipio_proporcao_mulheres_pop 
     + cov_municipio_pop_total 
     #+ cov_pib_pc
     , data = df)
@@ -105,7 +105,88 @@ RDD <- function(df, x, y) {
 }
 ```
 
+## Função teste de robustez
+```{r}
 
+library(tidyverse)
+library(rdrobust)
+library(rlang)
+library(glue)
+library(patchwork)
+
+
+
+RDD_sensibilidade <- function(df, x, y) {
+
+  x <- enquo(x)
+  y <- enquo(y)
+  y_name <- as_label(y)
+
+  cat("\n====================\n")
+  cat("Variável dependente:", y_name, "\n")
+
+  df <- df |>
+    filter(!is.na(!!x), !is.na(!!y), !is.na(ano), !is.na(cd_municipio_ibge_7))
+
+  num_eventos <- df |> summarise(total = sum(!!y, na.rm = TRUE)) |> pull()
+  if (num_eventos < 50) {
+    message(glue("Só {num_eventos} eventos. Pulando variável: {y_name}"))
+    return(NULL)
+  }
+
+  controls <- model.matrix(~ ano, data = df)
+
+  x_vals <- df |> pull(!!x)
+  y_vals <- df |> pull(!!y)
+
+  # Roda com bandwidth ótimo
+  rd_opt <- rdrobust(
+    x = x_vals,
+    y = y_vals,
+    covs = controls,
+    cluster = df$cd_municipio_ibge_7,
+    all = TRUE,
+    kernel = "triangular"
+  )
+  print(summary(rd_opt))
+
+  # Sensibilidade
+  bandwidths <- seq(0.05, 1, by = 0.1)
+  betas <- numeric(length(bandwidths))
+  pvalues <- numeric(length(bandwidths))
+
+  for (i in seq_along(bandwidths)) {
+    res <- rdrobust(
+      x = x_vals, y = y_vals,
+      covs = controls,
+      cluster = df$cd_municipio_ibge_7,
+      h = bandwidths[i],
+      all = TRUE,
+      kernel = "triangular"
+    )
+    betas[i] <- res$coef[1]
+    pvalues[i] <- res$pv[1]
+  }
+
+  results <- tibble(
+    bandwidth = bandwidths,
+    beta = betas,
+    pvalue = pvalues
+  )
+
+  g1 <- results |>
+    ggplot(aes(bandwidth, beta)) +
+    geom_line() + geom_point() +
+    labs(title = paste("Coef vs bandwidth -", y_name), y = "coef.")
+
+  g2 <- results |>
+    ggplot(aes(bandwidth, pvalue)) +
+    geom_line() + geom_point() +
+    labs(title = paste("p-value vs bandwidth -", y_name), y = "p-value")
+
+  g1 / g2
+}
+```
 
 ## Sinan
 base sinan filtrando para casos de mulheres
@@ -330,7 +411,7 @@ consolidado_sinan <- df_adriano_raw |>
 df_rdd_sinan <- df_candidates |>
   filter(!ano %in% c("2004")) |> 
   left_join(
-    consolidado_sinan_fem,
+    consolidado_sinan,
     by = c("ano" = "mandato", "cd_municipio_ibge_6" = "cd_muni")
   ) |> 
 
@@ -369,6 +450,24 @@ map(y_vars, ~ {RDD(df_rdd_sinan, x = val_margem_vitoria_feminina, y = !!sym(.x))
 #map(y_vars, ~ {Rdd20(df_rdd_sinan, x = val_margem_vitoria_feminina, y = !!sym(.x))})
 
 ```
+
+## Teste de sensibilidade Sinan
+
+```{r}
+y_vars <- names(df_rdd_sinan)[grepl("^y_", names(df_rdd_sinan))]
+
+map(
+  y_vars,
+  ~ RDD_sensibilidade(
+      df = df_rdd_sinan,
+      x = val_margem_vitoria_feminina,
+      y = !!sym(.x)
+    )
+)
+
+```
+
+
 
 ```{r}
 
@@ -717,6 +816,21 @@ rdplot(
 ```
 
 
+## Teste de sensibilidade Sih
+
+```{r}
+y_vars <- names(df_rdd_sih)[grepl("^y_", names(df_rdd_sih))]
+
+map(
+  y_vars,
+  ~ RDD_sensibilidade(
+      df = df_rdd_sih,
+      x = val_margem_vitoria_feminina,
+      y = !!sym(.x)
+    )
+)
+
+```
 # CBO
 
 verificar varíaveis e labels
@@ -862,4 +976,34 @@ rdplot(
 
 ```
 
+```{r}
+rdplot(
+  y = df_rdd_cbo$y_psiquiatra_n_ab,
+  x = df_rdd_cbo$val_margem_vitoria_feminina,
+  kernel = "triangular",
+  x.lim = c(-0.141, 0.141),
+  y.lim = c(-10, 10),
+  nbins = 100,
+  p = 1,
+  x.label = "Margem de Vitória Feminina (%)",
+  y.label = "Variação de Psiquiatras não atenção básica/100k hab"
+)
 
+```
+
+
+## Teste de sensibilidade cbo
+
+```{r}
+y_vars <- names(df_rdd_cbo)[grepl("^y_", names(df_rdd_cbo))]
+
+map(
+  y_vars,
+  ~ RDD_sensibilidade(
+      df = df_rdd_cbo,
+      x = val_margem_vitoria_feminina,
+      y = !!sym(.x)
+    )
+)
+
+```
