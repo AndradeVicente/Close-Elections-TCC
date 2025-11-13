@@ -68,7 +68,7 @@ datasus_geral_tratado <- datasus_raw |>
 
 datasus_geral_tratado |> write_rds("../../dados/Datasus/SIMSUS/datasus_geral_tratado.rds")
 
-datasus_geral_tratado <- readRDS("../../dados/datasus_geral_tratado.rds")
+datasus_geral_tratado <- readRDS("../../dados/Datasus/SIMSUS/datasus_geral_tratado.rds")
 
 ```
 
@@ -128,7 +128,7 @@ var_dependentes_simsus |> write_rds("../../dados/Datasus/SIMSUS/var_dependentes_
 # TSE
 ```{r}
 
-candidatos <- readRDS("../Dados/candidates-att.rds")
+candidatos <- readRDS("../dados/TSE/candidates-att.rds")
 
 prefeitos <- candidatos |> 
   

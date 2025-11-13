@@ -12,30 +12,30 @@ library(basedosdados)
 
 
 ```{r}
+# 
+# set_billing_id("base-dos-dados-455418")
+# 
+# query <- ("
+# SELECT
+#     dados.ano as ano,
+#     dados.id_municipio as id_municipio,
+#     dados.estagio as estagio,
+#     dados.portaria as portaria,
+#     dados.conta as conta,
+#     dados.estagio_bd as estagio_bd,
+#     dados.id_conta_bd as id_conta_bd,
+#     dados.conta_bd as conta_bd,
+#     dados.valor as valor
+# FROM `basedosdados.br_me_siconfi.municipio_despesas_funcao` AS dados
+# WHERE ano >= 2004")
+# 
+# finbra_raw <- read_sql(query, billing_project_id = get_billing_id())
 
-set_billing_id("base-dos-dados-455418")
-
-query <- ("
-SELECT
-    dados.ano as ano,
-    dados.id_municipio as id_municipio,
-    dados.estagio as estagio,
-    dados.portaria as portaria,
-    dados.conta as conta,
-    dados.estagio_bd as estagio_bd,
-    dados.id_conta_bd as id_conta_bd,
-    dados.conta_bd as conta_bd,
-    dados.valor as valor
-FROM `basedosdados.br_me_siconfi.municipio_despesas_funcao` AS dados
-WHERE ano >= 2004")
-
-finbra_raw <- read_sql(query, billing_project_id = get_billing_id())
-
+finbra_raw <- read_rds('../../dados/siconfi/siconfi_raw.rds')
 ```
 
 
 ```{r}
-
 
 df_gastos <- finbra_raw |> 
   filter(estagio_bd == 'Despesas Pagas') |> 
@@ -203,6 +203,109 @@ map(y_vars, ~ {RDD(df_rdd_siconfi, x = val_margem_vitoria_feminina, y = !!sym(.x
 
 
 
+```{r}
+
+
+library(tidyverse)
+library(rdrobust)
+library(rlang)
+library(glue)
+library(patchwork)
+
+
+
+RDD_sensibilidade <- function(df, x, y) {
+
+  x <- enquo(x)
+  y <- enquo(y)
+  y_name <- as_label(y)
+
+  cat("\n====================\n")
+  cat("Variável dependente:", y_name, "\n")
+
+  df <- df |>
+    filter(!is.na(!!x), !is.na(!!y), !is.na(ano), !is.na(cd_municipio_ibge_7))
+
+  num_eventos <- df |> summarise(total = sum(!!y, na.rm = TRUE)) |> pull()
+  if (num_eventos < 50) {
+    message(glue("Só {num_eventos} eventos. Pulando variável: {y_name}"))
+    return(NULL)
+  }
+
+  controls <- model.matrix(~ ano, data = df)
+
+  x_vals <- df |> pull(!!x)
+  y_vals <- df |> pull(!!y)
+
+  # Roda com bandwidth ótimo
+  rd_opt <- rdrobust(
+    x = x_vals,
+    y = y_vals,
+    covs = controls,
+    cluster = df$cd_municipio_ibge_7,
+    all = TRUE,
+    kernel = "triangular"
+  )
+  print(summary(rd_opt))
+
+  # Sensibilidade
+  bandwidths <- seq(0.05, 1, by = 0.05)
+  betas <- numeric(length(bandwidths))
+  pvalues <- numeric(length(bandwidths))
+
+  for (i in seq_along(bandwidths)) {
+    res <- rdrobust(
+      x = x_vals, y = y_vals,
+      covs = controls,
+      cluster = df$cd_municipio_ibge_7,
+      h = bandwidths[i],
+      all = TRUE,
+      kernel = "triangular"
+    )
+    betas[i] <- res$coef[1]
+    pvalues[i] <- res$pv[1]
+  }
+
+  results <- tibble(
+    bandwidth = bandwidths,
+    beta = betas,
+    pvalue = pvalues
+  )
+
+  g1 <- results |>
+    ggplot(aes(bandwidth, beta)) +
+    geom_line() + geom_point() +
+    labs(title = paste("Coef vs bandwidth -", y_name), y = "coef.")
+
+  g2 <- results |>
+    ggplot(aes(bandwidth, pvalue)) +
+    geom_line() + geom_point() +
+    labs(title = paste("p-value vs bandwidth -", y_name), y = "p-value")
+
+  g1 / g2
+}
+
+
+```
+
+
+```{r}
+
+y_vars <- names(df_rdd_siconfi)[grepl("^y_", names(df_rdd_siconfi))]
+
+map(
+  y_vars,
+  ~ RDD_sensibilidade(
+      df = df_rdd_siconfi,
+      x = val_margem_vitoria_feminina,
+      y = !!sym(.x)
+    )
+)
+```
+
+
+```{r}
+```
 
 
 

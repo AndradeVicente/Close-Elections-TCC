@@ -60,7 +60,7 @@ df_simsus_dependentes <- df_datasus |>
   
 
 ```
-## Com variável death of despair- Duda
+## Com variável death of despair - Duda
 ```{r}
 df_simsus_dependentes <- df_datasus |> 
   filter(idade >= 15 & idade <= 49, cd_sexo == 2) |> 
@@ -103,9 +103,9 @@ df_rdd_simsus <- df_candidates |>
     across(starts_with('y_'), ~ (./cov_municipio_pop_total)*100000),
     across(starts_with('y_'), ~ replace_na(., 0)),
   ) |> 
-  filter(!ano %in% c(2004))
+  filter(!ano %in% c(2004, 2020))
   
-
+df_rdd_simsus |> select(-y_overdose, -y_suicide ,-y_alcoholic_disease)
 
 ```
 
@@ -121,27 +121,27 @@ RDD <- function(df, x, y) {
       !is.na({{x}}),
       !is.na({{y}}),
       !is.na(ano),
-      !is.na(cov_reeleicao),
-      !is.na(cov_candidato_partido),
+      # !is.na(cov_reeleicao),
+      # !is.na(cov_candidato_partido),
       #!is.na(cov_candidato_patrimonio),
       #!is.na(cov_candidato_despesa_campanha_rs),
-      !is.na(cov_candidato_educacao_agrupada),
-      !is.na(cov_candidato_idade),
-      !is.na(cov_municipio_proporcao_mulheres_pop),
-      !is.na(cov_municipio_pop_total),
+      # !is.na(cov_candidato_educacao_agrupada),
+      # !is.na(cov_candidato_idade),
+      # !is.na(cov_municipio_proporcao_mulheres_pop),
+      # !is.na(cov_municipio_pop_total),
       !is.na(cd_municipio_ibge_7)
     )
 
   controls <- model.matrix(
     ~ ano 
-    + cov_reeleicao
-    + cov_candidato_partido
+    # + cov_reeleicao
+    # + cov_candidato_partido
     #+ cov_candidato_patrimonio
     #+ cov_candidato_despesa_campanha_rs
-    + cov_candidato_educacao_agrupada
-    + cov_candidato_idade
-    + cov_municipio_proporcao_mulheres_pop
-    + cov_municipio_pop_total
+    # + cov_candidato_educacao_agrupada
+    # + cov_candidato_idade
+    # + cov_municipio_proporcao_mulheres_pop
+    # + cov_municipio_pop_total
     , data = df)
 
   x_vals <- df |> pull({{x}})

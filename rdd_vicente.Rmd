@@ -1,0 +1,315 @@
+---
+title: "Final-Vicente"
+output: html_document
+date: "2025-11-09"
+---
+
+```{r}
+library(tidyverse)
+library(rdrobust)
+```
+
+# TSE
+
+```{r}
+df_candidates <- readRDS('dados/TSE/TSE_tratado_completo.RDS')
+df_datasus <- readRDS('dados/Datasus/SIMSUS/var_dependentes_simsus.RDS')
+```
+
+
+
+# Datasus
+
+```{r}
+df_simsus_dependentes_1 <- df_datasus |> 
+  select(-y_suicide,
+         -y_overdose,
+         -y_alcoholic_disease) |> 
+  
+  filter(idade >= 15 & idade <= 49, cd_sexo == 2)  |> 
+  group_by(mandato, cd_muni_res) |>
+  summarise(across(
+  .cols = starts_with("y_"),       
+  .fns = ~ sum(.),  
+  .names = "{.col}"              
+  )) |> 
+  ungroup() |> 
+  arrange(cd_muni_res, mandato) |> 
+  group_by(cd_muni_res) |> 
+  mutate(across(
+    .cols = starts_with("y_"),       
+    .fns = ~ lag(.),  
+    .names = "{.col}_previous")) |> 
+  ungroup()
+
+df_rdd_simsus_1 <- df_candidates |> 
+  left_join(df_simsus_dependentes, by= c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni_res')) |> 
+  mutate(
+    across(starts_with('y_'), ~ (./cov_municipio_pop_total)*100000),
+    across(starts_with('y_'), ~ replace_na(., 0)),
+  ) |> 
+  filter(!ano %in% c(2004, 2020))
+
+
+```
+
+```{r}
+
+df_rdd_simsus_1 |> 
+
+```
+
+
+
+
+```{r, fig.width=12, fig.height=7}
+RDD <- function(df, x, y) {
+  library(rdrobust)
+  library(rlang)
+
+  # pega o nome da variável y em formato string
+  y_name <- as_label(enquo(y))
+
+  df <- df |>
+    filter(
+      !is.na({{x}}),
+      !is.na({{y}}),
+      !is.na(ano),
+      !is.na(cov_reeleicao),
+      !is.na(cov_candidato_partido),
+      !is.na(cov_candidato_despesa_campanha_rs),
+      !is.na(cov_candidato_patrimonio),
+      !is.na(cov_candidato_educacao_agrupada),
+      !is.na(cov_candidato_idade),
+      !is.na(cov_municipio_proporcao_mulheres_pop),
+      !is.na(cov_municipio_pop_total),
+      !is.na(cd_municipio_ibge_7)
+    )
+  
+    # se não tiver dados suficientes, pula
+  if (nrow(df) < 30 || length(unique(df |> pull({{y}}))) < 5) {
+    cat("\n====================\n")
+    cat("Variável:", y_name, "- não tem dados suficientes. Pulando.\n")
+    return(NULL)
+  }
+
+
+  controls <- model.matrix(
+    ~ ano
+    + cov_reeleicao
+    + cov_candidato_partido
+    + cov_candidato_educacao_agrupada
+    + cov_candidato_idade
+    + cov_municipio_proporcao_mulheres_pop
+    + cov_municipio_pop_total
+    + cov_candidato_patrimonio
+    + cov_candidato_despesa_campanha_rs
+    ,data = df)
+
+  x_vals <- df |> pull({{x}})
+  y_vals <- df |> pull({{y}})
+
+  regressao <- rdrobust(
+    x = x_vals,
+    y = y_vals,
+    covs = controls,
+    cluster = df$cd_municipio_ibge_7,
+    all = TRUE,
+    kernel = "triangular"
+  )
+
+  cat("\n====================\n")
+  cat("Resultado para variável:", y_name, "\n")
+  print(summary(regressao))
+
+  h <- regressao$bws[1]
+
+  dados_filtrados <- tibble(x = x_vals, y = y_vals) |>
+    filter(abs(x) <= h)
+
+  ymax <- mean(dados_filtrados$y)
+  
+  
+
+  rdplot(
+    y = y_vals,
+    x = x_vals,
+    kernel = "triangular",
+    x.lim = c(-0.159, 0.159),
+    y.lim = c(0, 5),
+    nbins = 100,
+    p = 4,
+    title = paste("RDD Plot -", y_name),
+    y.label = y_name,
+    x.label = as_label(enquo(x))
+  )
+}
+
+
+```
+
+
+```{r, warning=FALSE, fig.width = NULL, fig.height = NULL}
+
+y_vars <- names(df_rdd_simsus)[grepl("^y_", names(df_rdd_simsus))]
+
+map(y_vars, ~ {RDD(df_rdd_simsus, x = val_margem_vitoria_feminina, y = !!sym(.x))})
+
+```
+
+```{r}
+
+library(tidyverse)
+library(rdrobust)
+library(rlang)
+library(glue)
+library(patchwork)
+
+
+
+RDD_sensibilidade <- function(df, x, y) {
+
+  x <- enquo(x)
+  y <- enquo(y)
+  y_name <- as_label(y)
+
+  cat("\n====================\n")
+  cat("Variável dependente:", y_name, "\n")
+
+  df <- df |>
+    filter(
+      !is.na({{x}}),
+      !is.na({{y}}),
+      !is.na(ano),
+      !is.na(cov_reeleicao),
+      !is.na(cov_candidato_partido),
+      !is.na(cov_candidato_despesa_campanha_rs),
+      !is.na(cov_candidato_patrimonio),
+      !is.na(cov_candidato_educacao_agrupada),
+      !is.na(cov_candidato_idade),
+      !is.na(cov_municipio_proporcao_mulheres_pop),
+      !is.na(cov_municipio_pop_total),
+      !is.na(cd_municipio_ibge_7)
+    )
+  
+    # se não tiver dados suficientes, pula
+  if (nrow(df) < 30 || length(unique(df |> pull({{y}}))) < 5) {
+    cat("\n====================\n")
+    cat("Variável:", y_name, "- não tem dados suficientes. Pulando.\n")
+    return(NULL)
+  }
+
+
+  controls <- model.matrix(
+    ~ ano
+    + cov_reeleicao
+    + cov_candidato_partido
+    + cov_candidato_educacao_agrupada
+    + cov_candidato_idade
+    + cov_municipio_proporcao_mulheres_pop
+    + cov_municipio_pop_total
+    + cov_candidato_patrimonio
+    + cov_candidato_despesa_campanha_rs
+    ,data = df)
+  x_vals <- df |> pull(!!x)
+  y_vals <- df |> pull(!!y)
+
+  # Roda com bandwidth ótimo
+  rd_opt <- rdrobust(
+    x = x_vals,
+    y = y_vals,
+    covs = controls,
+    cluster = df$cd_municipio_ibge_7,
+    all = TRUE,
+    kernel = "triangular"
+  )
+  print(summary(rd_opt))
+
+  # Sensibilidade
+  bandwidths <- seq(0.075, 1, by = 0.05)
+  betas <- numeric(length(bandwidths))
+  pvalues <- numeric(length(bandwidths))
+
+  for (i in seq_along(bandwidths)) {
+    res <- rdrobust(
+      x = x_vals, y = y_vals,
+      covs = controls,
+      cluster = df$cd_municipio_ibge_7,
+      h = bandwidths[i],
+      all = TRUE,
+      kernel = "triangular"
+    )
+    betas[i] <- res$coef[1]
+    pvalues[i] <- res$pv[1]
+  }
+
+  results <- tibble(
+    bandwidth = bandwidths,
+    beta = betas,
+    pvalue = pvalues
+  )
+
+  g1 <- results |>
+    ggplot(aes(bandwidth, beta)) +
+    geom_line() + geom_point() +
+    labs(title = paste("Coef vs bandwidth -", y_name), y = "coef.")
+
+  g2 <- results |>
+    ggplot(aes(bandwidth, pvalue)) +
+    geom_line() + geom_point() +
+    labs(title = paste("p-value vs bandwidth -", y_name), y = "p-value")
+
+  g1 / g2
+}
+
+```
+
+
+```{r, warning=FALSE}
+y_vars <- names(df_rdd_simsus)[grepl("^y_", names(df_rdd_simsus))]
+
+map(
+  y_vars,
+  ~ RDD_sensibilidade(
+      df = df_rdd_simsus,
+      x = val_margem_vitoria_feminina,
+      y = y_domestic_homicide 
+    )
+)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
