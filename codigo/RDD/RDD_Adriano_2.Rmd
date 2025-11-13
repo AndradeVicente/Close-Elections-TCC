@@ -20,8 +20,60 @@ df_adriano_raw |> view()
 
 ```{r}
 df_candidates <- readRDS('../../dados/TSE_tratado_completo.RDS')
+
+df_candidates |> 
+  filter(cd_municipio_ibge_6==110012)
 ```
 
+## Robustez covariadas
+```{r}
+library(fastDummies)
+
+df_rdd_cov <- df_candidates |>
+  dummy_cols(
+    select_columns = c("cov_candidato_partido",
+                       "cov_candidato_educacao_agrupada"),
+    remove_selected_columns = FALSE
+  )
+
+#Teste- deu certo
+df_rdd_cov |> 
+  filter(cd_municipio_ibge_6==110012)
+
+##rdd com covariadas:
+y_vars <- names(df_rdd_cov)[
+  grepl("^cov_", names(df_rdd_cov)) &
+    !names(df_rdd_cov) %in% c(
+      "cov_candidato_partido",
+      "cov_candidato_educacao_agrupada"
+    )
+]
+
+map(y_vars, ~ RDD(
+  df_rdd_cov,
+  x = val_margem_vitoria_feminina,
+  y = !!sym(.x)
+))
+
+```
+#Sinan com as covariadas
+```{r}
+
+##rdd com covariadas:
+y_vars <- names(df_rdd_sinan_cov)[
+  grepl("^cov_", names(df_rdd_sinan_cov)) &
+    !names(df_rdd_sinan_cov) %in% c(
+      "cov_candidato_partido",
+      "cov_candidato_educacao_agrupada"
+    )
+]
+
+map(y_vars, ~ RDD(
+  df_rdd_sinan_cov,
+  x = val_margem_vitoria_feminina,
+  y = !!sym(.x)
+))
+```
 ## Função RDD principal
 ```{r}
 RDD <- function(df, x, y) {
@@ -436,15 +488,19 @@ df_rdd_sinan <- df_candidates |>
   )) |>
   ungroup()
 
+df_rdd_sinan |> 
+  filter(cd_municipio_ibge_6==110004)
+
 ```
+
 
 
 RDD sinan
 ```{r}
 
 y_vars <- names(df_rdd_sinan)[grepl("^y_", names(df_rdd_sinan))]
-
 map(y_vars, ~ {RDD(df_rdd_sinan, x = val_margem_vitoria_feminina, y = !!sym(.x))})
+
 
 #####rdd 2020
 #map(y_vars, ~ {Rdd20(df_rdd_sinan, x = val_margem_vitoria_feminina, y = !!sym(.x))})
