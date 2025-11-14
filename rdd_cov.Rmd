@@ -1,0 +1,141 @@
+---
+title: "rdd_covs"
+output: html_document
+date: "2025-11-13"
+---
+
+```{r}
+library(tidyverse)
+library(rdrobust)
+library(fastDummies)
+```
+
+
+```{r}
+df_candidates <- readRDS('dados/TSE/TSE_tratado_completo.RDS')
+df_candidates
+
+```
+
+
+```{r}
+df_cov <- df_candidates |>
+  dummy_cols( c('cov_candidato_partido', 'cov_candidato_educacao_agrupada'), 
+    remove_first_dummy = TRUE,
+    remove_selected_columns = TRUE) |> 
+  select(-cov_reeleicao, -cd_municipio_ibge_6, -cd_municipio_tse)
+
+```
+
+
+```{r}
+
+names(df_cov)[
+  grepl("^cov_", names(df_cov)) &
+    !names(df_cov) %in% c(
+      "cov_candidato_partido",
+      "cov_candidato_educacao_agrupada"
+    )
+]
+
+```
+
+```{r}
+
+RDD <- function(df, x, y) {
+
+  library(rdrobust)
+  
+    # pega o nome da variável y em formato string
+  y_name <- as_label(enquo(y))
+  cat("\n====================\n")
+  cat("Resultado para variável:", y_name, "\n")
+
+  df <- df |>
+    filter(
+      !is.na({{x}}),
+      !is.na({{y}}),
+    )
+
+  num_eventos <- df |> summarise(total = sum({{y}}, na.rm = TRUE)) |> pull(total)
+
+  if (num_eventos < 50) {
+    message(glue::glue("Só {num_eventos} eventos. Pulando variável."))
+    return(NULL)
+  }
+  
+  x_vals <- df |> pull({{x}})
+  y_vals <- df |> pull({{y}})
+
+  regressao <- rdrobust(
+    x = x_vals,
+    y = y_vals,
+    cluster = df$cd_municipio_ibge_7,
+    all = TRUE,
+    kernel = "triangular"
+  )
+
+  print(summary(regressao))
+
+  h <- regressao$bws[1]
+
+  dados_filtrados <- tibble(x = x_vals, y = y_vals) |>
+    filter(abs(x) <= h)
+
+  ymax <- mean(dados_filtrados$y)
+
+  rdplot(
+    y = y_vals,
+    x = x_vals,
+    kernel = "triangular",
+    x.lim = c(-h, h),
+    y.lim = c(0, ymax * 2),
+    title = paste("RDD Plot -", y_name),
+    nbins = 100,
+    p = 1
+  )
+}
+
+
+```
+
+```{r}
+
+y_vars <- names(df_cov)[grepl("^cov_", names(df_cov))]
+
+map(
+  y_vars,
+  ~ RDD(
+      df = df_cov,
+      x = val_margem_vitoria_feminina,
+      y = !!sym(.x)
+    )
+)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
