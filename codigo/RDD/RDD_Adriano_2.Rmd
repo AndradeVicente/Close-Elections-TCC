@@ -499,12 +499,51 @@ y_vars <- names(df_rdd_sinan)[grepl("^y_", names(df_rdd_sinan))]
 map(y_vars, ~ {RDD(df_rdd_sinan, x = val_margem_vitoria_feminina, y = !!sym(.x))})
 
 
-#####rdd 2020
-#map(y_vars, ~ {Rdd20(df_rdd_sinan, x = val_margem_vitoria_feminina, y = !!sym(.x))})
+RDD(df_rdd_sinan, x = val_margem_vitoria_feminina, y = y_sinan_agressao_ameaca)
+
+
+g <- rdplot(
+  y = df_rdd_sinan$y_sinan_agressao_ameaca,
+  x = df_rdd_sinan$val_margem_vitoria_feminina,
+  kernel = "triangular",
+  x.lim = c(-0.122, 0.122),
+  y.lim = c(0, 60),
+  nbins = 100,
+  p = 4,
+  title = "Ameaça Contra Mulheres",
+  y.label = "Notificações Sinan / 100k H.",
+  x.label = "Margem de Vitória Feminina (%)")
+
+g$rdplot +
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid = element_blank()
+
+  ) 
+  
+g$rdplot$layers[[1]]$aes_params$colour <- "black"   # pontos
+g$rdplot$layers[[2]]$aes_params$colour <- "black"   # linha
+g$rdplot$layers[[3]]$aes_params$colour <- "black"   # linha
+
+
+g$rdplot
+
+ggsave(
+  filename = "../../Graficos/grafico_rdd_ameaca.pdf",
+  plot = g$rdplot,
+  device = cairo_pdf,   # evita serrilhado
+  width = 8,
+  height = 5
+)
 
 ```
 
 ## Teste de sensibilidade Sinan
+
+```{r}
+
+```
 
 ```{r}
 y_vars <- names(df_rdd_sinan)[grepl("^y_", names(df_rdd_sinan))]

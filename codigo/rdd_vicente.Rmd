@@ -12,8 +12,8 @@ library(rdrobust)
 # TSE
 
 ```{r}
-df_candidates <- readRDS('dados/TSE/TSE_tratado_completo.RDS')
-df_datasus <- readRDS('dados/Datasus/SIMSUS/var_dependentes_simsus.RDS')
+df_candidates <- readRDS('../dados/TSE/TSE_tratado_completo.RDS')
+df_datasus <- readRDS('../dados/Datasus/SIMSUS/var_dependentes_simsus.RDS')
 ```
 
 
@@ -40,9 +40,7 @@ df_simsus_dependentes_1 <- df_datasus |>
     .cols = starts_with("y_"),       
     .fns = ~ lag(.),  
     .names = "{.col}_previous")) |> 
-  ungroup() |> 
-  mutate(mandato= as.factor(mandato))
-
+  ungroup() 
 
 df_rdd_simsus_1 <- df_candidates |> 
   left_join(df_simsus_dependentes_1, by= c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni_res')) |> 

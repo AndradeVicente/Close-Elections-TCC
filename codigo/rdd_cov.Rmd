@@ -12,7 +12,7 @@ library(fastDummies)
 
 
 ```{r}
-df_candidates <- readRDS('dados/TSE/TSE_tratado_completo.RDS')
+df_candidates <- readRDS('../dados/TSE/TSE_tratado_completo.RDS')
 df_candidates
 
 ```
@@ -23,7 +23,59 @@ df_cov <- df_candidates |>
   dummy_cols( c('cov_candidato_partido', 'cov_candidato_educacao_agrupada'), 
     remove_first_dummy = TRUE,
     remove_selected_columns = TRUE) |> 
-  select(-cov_reeleicao, -cd_municipio_ibge_6, -cd_municipio_tse)
+  select(-cov_reeleicao, -cd_municipio_ibge_6, -cd_municipio_tse) |> 
+  select(ano, val_margem_vitoria_feminina, cov_candidato_idade, cov_candidato_patrimonio, cov_candidato_despesa_campanha_rs,
+         cov_municipio_pop_total, cov_municipio_proporcao_mulheres_pop,
+         cov_candidato_partido_DEM, cov_candidato_partido_PMDB, cov_candidato_partido_PSDB, cov_candidato_partido_PT,
+         'cov_candidato_educacao_agrupada_Incomplete Elementary', 'cov_candidato_educacao_agrupada_Incomplete High School',
+         'cov_candidato_educacao_agrupada_Incomplete University', 'cov_candidato_educacao_agrupada_Complete High School', 'cov_candidato_educacao_agrupada_Complete University') |> 
+  
+  mutate(genero = ifelse(val_margem_vitoria_feminina < 0,  "male", "female")) 
+
+
+compute_stats <- function(data, var){
+  var_sym <- rlang::sym(var)   # converte string para símbolo
+  
+  female <- data |> filter(genero=="female") |> pull(!!var_sym)
+  male   <- data |> filter(genero=="male")   |> pull(!!var_sym)
+  
+  tibble(
+    variable = var,   # agora já é string, perfeito
+    female_mean = mean(female, na.rm=TRUE),
+    female_n = sum(!is.na(female)),
+    male_mean = mean(male, na.rm=TRUE),
+    male_n = sum(!is.na(male)),
+    p_value = t.test(female, male)$p.value
+  )
+}
+
+
+
+
+vars <- c(
+  "cov_candidato_idade",
+  "cov_candidato_patrimonio",
+  "cov_candidato_despesa_campanha_rs",
+  "cov_municipio_pop_total",
+  "cov_municipio_proporcao_mulheres_pop",
+  "cov_candidato_partido_DEM",
+  "cov_candidato_partido_PMDB",
+  "cov_candidato_partido_PSDB",
+  "cov_candidato_partido_PT",
+  "cov_candidato_educacao_agrupada_Incomplete Elementary",
+  "cov_candidato_educacao_agrupada_Incomplete High School",
+  "cov_candidato_educacao_agrupada_Incomplete University",
+  "cov_candidato_educacao_agrupada_Complete High School",
+  "cov_candidato_educacao_agrupada_Complete University"
+)
+
+table_cov <- purrr::map_dfr(vars, ~compute_stats(df_cov, .x)) |> 
+  mutate(
+    p_value_clean = ifelse(p_value < 0.001,
+                           "<0.001",
+                           sprintf("%.3f", p_value))
+  )
+
 
 ```
 
