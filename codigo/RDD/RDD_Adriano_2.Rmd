@@ -14,12 +14,13 @@ library(purrr)
 ## Bases raw
 ```{r}
 df_adriano_raw <- read_dta('../../dados/Bases/Base_cosolidada_TCC_base3.dta')
+df_adriano_raw <- read_dta('../../dados/Adriano/Base_consolidada_TCC_base3.dta')
 
 df_adriano_raw |> view()
 ```
 
 ```{r}
-df_candidates <- readRDS('../../dados/TSE_tratado_completo.RDS')
+df_candidates <- readRDS('../../dados/TSE/TSE_tratado_completo.RDS')
 
 df_candidates |> 
   filter(cd_municipio_ibge_6==110012)
@@ -92,11 +93,11 @@ RDD <- function(df, x, y) {
       !is.na(ano),
       !is.na(cov_reeleicao),
       !is.na(cov_candidato_partido),
-      # !is.na(cov_candidato_patrimonio),
-      # !is.na(cov_candidato_despesa_campanha_rs),
+      !is.na(cov_candidato_patrimonio),
+      !is.na(cov_candidato_despesa_campanha_rs),
       !is.na(cov_candidato_educacao_agrupada),
       !is.na(cov_candidato_idade),
-      #!is.na(cov_municipio_proporcao_mulheres_pop),
+      !is.na(cov_municipio_proporcao_mulheres_pop),
       !is.na(cov_municipio_pop_total),
       # !is.na(cov_pib_pc),
       !is.na(cd_municipio_ibge_7)
@@ -114,11 +115,11 @@ RDD <- function(df, x, y) {
     ~ ano 
     + cov_reeleicao 
     + cov_candidato_partido 
-    #+ cov_candidato_patrimonio 
-    #+ cov_candidato_despesa_campanha_rs 
+    + cov_candidato_patrimonio
+    + cov_candidato_despesa_campanha_rs
     + cov_candidato_educacao_agrupada 
     + cov_candidato_idade
-    #+ cov_municipio_proporcao_mulheres_pop 
+    + cov_municipio_proporcao_mulheres_pop
     + cov_municipio_pop_total 
     #+ cov_pib_pc
     , data = df)
@@ -152,7 +153,7 @@ RDD <- function(df, x, y) {
     y.lim = c(0, ymax * 2),
     title = paste("RDD Plot -", y_name),
     nbins = 100,
-    p = 1
+    p = 4
   )
 }
 ```
@@ -461,22 +462,18 @@ consolidado_sinan <- df_adriano_raw |>
 
 ```{r}
 df_rdd_sinan <- df_candidates |>
+  left_join(consolidado_sinan_fem, by = c("ano" = "mandato", "cd_municipio_ibge_6" = "cd_muni")) |> 
+
+  mutate(across(
+    .cols = starts_with("y_"),
+    .fns  = ~ (. / cov_municipio_pop_total) * 100000)) |> 
+
+  mutate(across(
+    .cols = starts_with("y_"),
+    .fns  = ~ replace_na(., 0))) |> 
+  
   filter(!ano %in% c("2004")) |> 
-  left_join(
-    consolidado_sinan,
-    by = c("ano" = "mandato", "cd_municipio_ibge_6" = "cd_muni")
-  ) |> 
-
-  # normaliza y_
-  mutate(across(
-    .cols = starts_with("y_"),
-    .fns  = ~ (. / cov_municipio_pop_total) * 100000
-  )) |> 
-
-  mutate(across(
-    .cols = starts_with("y_"),
-    .fns  = ~ replace_na(., 0)
-  )) |> 
+  
 
   # cria y_previous por município + ano ordenado
   arrange(cd_municipio_ibge_6, ano) |>
@@ -484,8 +481,8 @@ df_rdd_sinan <- df_candidates |>
   mutate(across(
     .cols = starts_with("y_"),
     .fns  = ~ lag(.),
-    .names = "{.col}_previous"
-  )) |>
+    .names = "{.col}_previous")) |>
+  
   ungroup()
 
 df_rdd_sinan |> 

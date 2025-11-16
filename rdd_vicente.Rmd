@@ -40,22 +40,18 @@ df_simsus_dependentes_1 <- df_datasus |>
     .cols = starts_with("y_"),       
     .fns = ~ lag(.),  
     .names = "{.col}_previous")) |> 
-  ungroup()
+  ungroup() |> 
+  mutate(mandato= as.factor(mandato))
+
 
 df_rdd_simsus_1 <- df_candidates |> 
-  left_join(df_simsus_dependentes, by= c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni_res')) |> 
+  left_join(df_simsus_dependentes_1, by= c('ano' = 'mandato', 'cd_municipio_ibge_6' = 'cd_muni_res')) |> 
   mutate(
     across(starts_with('y_'), ~ (./cov_municipio_pop_total)*100000),
     across(starts_with('y_'), ~ replace_na(., 0)),
   ) |> 
-  filter(!ano %in% c(2004, 2020))
+  filter(!ano %in% c(2004 , 2020))
 
-
-```
-
-```{r}
-
-df_rdd_simsus_1 |> 
 
 ```
 
@@ -148,12 +144,50 @@ RDD <- function(df, x, y) {
 
 ```
 
+```{r}
+g <- rdplot(
+  y = df_rdd_simsus_1$y_domestic_homicide,
+  x = df_rdd_simsus_1$val_margem_vitoria_feminina,
+  kernel = "triangular",
+  x.lim = c(-0.159, 0.159),
+  y.lim = c(0, 5),
+  nbins = 100,
+  p = 4,
+  title = "Homicídio de Mulheres em Ambiente Doméstico",
+  y.label = "Homicídio Mulher / 100k H.(Doméstico)",
+  x.label = "Margem de Vitória Feminina (%)")
+
+g$rdplot +
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid = element_blank()
+
+  ) 
+  
+g$rdplot$layers[[1]]$aes_params$colour <- "black"   # pontos
+g$rdplot$layers[[2]]$aes_params$colour <- "black"   # linha
+g$rdplot$layers[[3]]$aes_params$colour <- "black"   # linha
+
+
+g$rdplot
+
+ggsave(
+  filename = "grafico_rdd_homicidio.pdf",
+  plot = g$rdplot,
+  device = cairo_pdf,   # evita serrilhado
+  width = 8,
+  height = 5
+)
+
+```
+
 
 ```{r, warning=FALSE, fig.width = NULL, fig.height = NULL}
 
-y_vars <- names(df_rdd_simsus)[grepl("^y_", names(df_rdd_simsus))]
+y_vars <- names(df_rdd_simsus_1)[grepl("^y_", names(df_rdd_simsus_1))]
 
-map(y_vars, ~ {RDD(df_rdd_simsus, x = val_margem_vitoria_feminina, y = !!sym(.x))})
+map(y_vars, ~ {RDD(df_rdd_simsus_1, x = val_margem_vitoria_feminina, y = !!sym(.x))})
 
 ```
 
@@ -183,8 +217,8 @@ RDD_sensibilidade <- function(df, x, y) {
       !is.na(ano),
       !is.na(cov_reeleicao),
       !is.na(cov_candidato_partido),
-      !is.na(cov_candidato_despesa_campanha_rs),
-      !is.na(cov_candidato_patrimonio),
+      # !is.na(cov_candidato_despesa_campanha_rs),
+      # !is.na(cov_candidato_patrimonio),
       !is.na(cov_candidato_educacao_agrupada),
       !is.na(cov_candidato_idade),
       !is.na(cov_municipio_proporcao_mulheres_pop),
@@ -208,8 +242,8 @@ RDD_sensibilidade <- function(df, x, y) {
     + cov_candidato_idade
     + cov_municipio_proporcao_mulheres_pop
     + cov_municipio_pop_total
-    + cov_candidato_patrimonio
-    + cov_candidato_despesa_campanha_rs
+    # + cov_candidato_patrimonio
+    # + cov_candidato_despesa_campanha_rs
     ,data = df)
   x_vals <- df |> pull(!!x)
   y_vals <- df |> pull(!!y)
@@ -226,7 +260,7 @@ RDD_sensibilidade <- function(df, x, y) {
   print(summary(rd_opt))
 
   # Sensibilidade
-  bandwidths <- seq(0.075, 1, by = 0.05)
+  bandwidths <- seq(0.05, 1, by = 0.05)
   betas <- numeric(length(bandwidths))
   pvalues <- numeric(length(bandwidths))
 
@@ -252,12 +286,15 @@ RDD_sensibilidade <- function(df, x, y) {
   g1 <- results |>
     ggplot(aes(bandwidth, beta)) +
     geom_line() + geom_point() +
-    labs(title = paste("Coef vs bandwidth -", y_name), y = "coef.")
+    labs(title = paste("Coeficiente por Corte - Homicídio de Mulheres em Ambiente Doméstico"), y = "coef.") + 
+    theme_minimal()
 
+  
   g2 <- results |>
     ggplot(aes(bandwidth, pvalue)) +
     geom_line() + geom_point() +
-    labs(title = paste("p-value vs bandwidth -", y_name), y = "p-value")
+    labs(title = paste("Valor P por Corte - Homicídio de Mulheres em Ambiente Doméstico"), y = "p-value") +
+    theme_minimal()
 
   g1 / g2
 }
@@ -266,12 +303,12 @@ RDD_sensibilidade <- function(df, x, y) {
 
 
 ```{r, warning=FALSE}
-y_vars <- names(df_rdd_simsus)[grepl("^y_", names(df_rdd_simsus))]
+y_vars <- names(df_rdd_simsus_1)[grepl("^y_", names(df_rdd_simsus_1))]
 
 map(
   y_vars,
   ~ RDD_sensibilidade(
-      df = df_rdd_simsus,
+      df = df_rdd_simsus_1,
       x = val_margem_vitoria_feminina,
       y = y_domestic_homicide 
     )

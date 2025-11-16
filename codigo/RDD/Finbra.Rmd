@@ -125,13 +125,15 @@ RDD <- function(df, x, y) {
       !is.na({{x}}),
       !is.na({{y}}),
       !is.na(ano),
-      # !is.na(cov_reeleicao),
-      # !is.na(cov_candidato_partido),
-      # !is.na(cov_candidato_educacao_agrupada),
-      # !is.na(cov_candidato_idade),
-      # !is.na(cov_municipio_proporcao_mulheres_pop),
-      # !is.na(cov_municipio_pop_total),
-      # !is.na(cd_municipio_ibge_7)
+      !is.na(cov_reeleicao),
+      !is.na(cov_candidato_partido),
+      !is.na(cov_candidato_despesa_campanha_rs),
+      !is.na(cov_candidato_patrimonio),
+      !is.na(cov_candidato_educacao_agrupada),
+      !is.na(cov_candidato_idade),
+      !is.na(cov_municipio_proporcao_mulheres_pop),
+      !is.na(cov_municipio_pop_total),
+      !is.na(cd_municipio_ibge_7)
     )
   
     # se não tiver dados suficientes, pula
@@ -144,12 +146,15 @@ RDD <- function(df, x, y) {
 
   controls <- model.matrix(
     ~ ano 
-    # + cov_reeleicao
-    # + cov_candidato_partido
-    # + cov_candidato_educacao_agrupada
-    # + cov_candidato_idade
-    # + cov_municipio_proporcao_mulheres_pop
-    # + cov_municipio_pop_total
+    + cov_reeleicao
+    + cov_candidato_partido
+    + cov_candidato_educacao_agrupada
+    + cov_candidato_idade
+    + cov_municipio_proporcao_mulheres_pop
+    + cov_municipio_pop_total
+    + cov_candidato_patrimonio
+    + cov_candidato_despesa_campanha_rs
+
     ,data = df)
 
   x_vals <- df |> pull({{x}})
@@ -201,6 +206,44 @@ map(y_vars, ~ {RDD(df_rdd_siconfi, x = val_margem_vitoria_feminina, y = !!sym(.x
 
 ```
 
+```{r}
+
+g <- rdplot(
+  y = df_rdd_siconfi$y_gasto_atencao_basica,
+  x = df_rdd_siconfi$val_margem_vitoria_feminina,
+  kernel = "triangular",
+  x.lim = c(-0.159, 0.159),
+  y.lim = c(1000, 3000),
+  nbins = 100,
+  p = 1,
+  title = "RD Plot",
+  y.label = "Gasto em Atenção Básica Per Capita ",
+  x.label = "Margem de Vitória Feminina (%)")
+
+
+g$rdplot +
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid = element_blank()) +
+  labs(title = "NULL")
+  
+g$rdplot$layers[[1]]$aes_params$colour <- "black"   # pontos
+g$rdplot$layers[[2]]$aes_params$colour <- "black"   # linha
+g$rdplot$layers[[3]]$aes_params$colour <- "black"   # linha
+
+
+g$rdplot
+
+ggsave(
+  filename = "grafico_rdd_homicidio.pdf",
+  plot = g$rdplot,
+  device = cairo_pdf,   # evita serrilhado
+  width = 8,
+  height = 5
+)
+
+```
 
 
 ```{r}

@@ -59,7 +59,7 @@ RDD <- function(df, x, y) {
 
   num_eventos <- df |> summarise(total = sum({{y}}, na.rm = TRUE)) |> pull(total)
 
-  if (num_eventos < 50) {
+  if (num_eventos < 10) {
     message(glue::glue("Só {num_eventos} eventos. Pulando variável."))
     return(NULL)
   }
@@ -114,7 +114,33 @@ map(
 
 ```
 
+```{r}
 
+df_cov %>%
+  summarise(across(
+    everything(),
+    list(
+      mean = ~mean(.x, na.rm = TRUE),
+      sd = ~sd(.x, na.rm = TRUE),
+      min = ~min(.x, na.rm = TRUE),
+      p25 = ~quantile(.x, 0.25, na.rm = TRUE),
+      median = ~median(.x, na.rm = TRUE),
+      p75 = ~quantile(.x, 0.75, na.rm = TRUE),
+      max = ~max(.x, na.rm = TRUE)
+    ),
+    .names = "{.col}_{.fn}"
+  ))
+
+```
+
+```{r}
+
+install.packages('skimr')
+
+skimr::skim(df_cov)
+
+
+```
 
 
 
